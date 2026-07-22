@@ -272,6 +272,22 @@ forex-analyzer/
 
 ---
 
+## 📱 Deployment
+
+Full deployment guides for all platforms in **[DEPLOYMENT.md](DEPLOYMENT.md)**:
+
+| Platform | Quick Start |
+|----------|-------------|
+| **Ubuntu Desktop/Server** | `python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt` |
+| **WSL2 (Windows)** | Same as Ubuntu — browser auto-opens |
+| **Termux (Android)** | See [DEPLOYMENT.md](DEPLOYMENT.md) for ARM64-specific steps |
+| **Docker** | `docker build -t forex-analyzer . && docker run -p 8501:8501 forex-analyzer` |
+| **systemd service** | One-command install — see [DEPLOYMENT.md](DEPLOYMENT.md) |
+
+Includes: Nginx reverse proxy + SSL, Docker, systemd, performance tuning, troubleshooting.
+
+---
+
 ## ⚠️ Important Disclaimers
 
 1. **Synthetic Data**: The trade database uses realistic synthetic data calibrated to published studies. It is NOT real historical data. Win rates are plausible but not verified against actual broker data.
