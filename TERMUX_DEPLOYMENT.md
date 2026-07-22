@@ -31,16 +31,31 @@ pkg update && pkg upgrade -y
 # Grant storage access
 termux-setup-storage
 
-# Install core tools
-pkg install -y git python python-pip build-essential libffi openssl rust binutils
+# Install core tools (no python-pip — we use venv instead)
+pkg install -y git python build-essential libffi openssl rust binutils
 ```
+
+> **Why no `python-pip`?** Termux's system pip frequently crashes when installing scientific packages (scipy, scikit-learn, xgboost) because it conflicts with system-managed packages. Using a **virtual environment** completely isolates dependencies and eliminates these crashes.
 
 ---
 
-## 3. Install Python Dependencies
+## 3. Create Virtual Environment & Install Dependencies
 
 ```bash
-# Upgrade pip and core build tools
+# Navigate to home
+cd ~
+
+# Clone the repo first
+git clone https://github.com/Devcode940/forex-chart-analyzer.git
+cd forex-chart-analyzer
+
+# Create virtual environment
+python -m venv venv
+
+# Activate it
+source venv/bin/activate
+
+# Upgrade pip inside the venv (safe, no system conflicts)
 pip install --upgrade pip setuptools wheel
 
 # Install numpy first (needs Rust compiler for some archs)
@@ -54,6 +69,9 @@ pip install opencv-python-headless Pillow
 
 # Install remaining dependencies
 pip install streamlit plotly xgboost pandas
+
+# Or install everything at once from requirements.txt
+pip install -r requirements.txt
 ```
 
 > **Note on ARM64**: Some packages may need to compile from source on ARM. If a `pip install` fails, try:
@@ -62,32 +80,48 @@ pip install streamlit plotly xgboost pandas
 > ```
 > This forces source compilation using the Rust/C compilers installed above.
 
----
+### Why venv?
 
-## 4. Clone the Repository
-
-```bash
-# Navigate to home directory
-cd ~
-
-# Clone the repo
-git clone https://github.com/Devcode940/forex-chart-analyzer.git
-
-cd forex-chart-analyzer
-```
+| Problem | System pip | venv pip |
+|---------|-----------|----------|
+| `externally-managed-environment` error | ✗ Common | ✗ Never |
+| Pip crashes on scipy/scikit-learn | ✗ Frequent | ✗ Rare |
+| Conflicts with Termux system packages | ✗ Yes | ✗ No |
+| `pip install --break-system-packages` hack needed | ✗ Yes | ✗ No |
+| Clean uninstall (just delete `venv/`) | ✗ No | ✗ Yes |
+| Reproducible builds | ✗ No | ✗ Yes |
 
 ---
 
-## 5. Run the App
+## 4. Run the App
+
+**You MUST activate the venv every time** before running:
 
 ```bash
-# Method 1: Using the run script
-chmod +x run.sh
-./run.sh
-
-# Method 2: Direct command
+cd ~/forex-chart-analyzer
+source venv/bin/activate
 python -m streamlit run app.py --server.port 8501 --server.headless true
 ```
+
+### Shortcut: Create an alias
+
+```bash
+# Add to ~/.bashrc
+echo 'alias forex="cd ~/forex-chart-analyzer && source venv/bin/activate && python -m streamlit run app.py --server.port 8501 --server.headless true"' >> ~/.bashrc
+source ~/.bashrc
+
+# Now just type:
+forex
+```
+
+### Shortcut: Use the run script
+
+```bash
+chmod +x run.sh
+./run.sh
+```
+
+The `run.sh` script automatically activates the venv before starting.
 
 ### Access the App
 
@@ -99,7 +133,7 @@ http://localhost:8501
 
 ---
 
-## 6. Alternative: Port Forwarding (Access from PC)
+## 5. Alternative: Port Forwarding (Access from PC)
 
 If you want to view the app on your computer while it runs on your phone:
 
@@ -108,6 +142,7 @@ If you want to view the app on your computer while it runs on your phone:
 ifconfig wlan0 | grep inet
 
 # Start the app binding to all interfaces
+source venv/bin/activate
 python -m streamlit run app.py --server.port 8501 --server.address 0.0.0.0 --server.headless true
 ```
 
@@ -115,7 +150,7 @@ Then on your PC browser: `http://<PHONE_IP>:8501`
 
 ---
 
-## 7. Taking Screenshots for Analysis
+## 6. Taking Screenshots for Analysis
 
 Since you're on Android, the easiest workflow:
 
@@ -134,7 +169,7 @@ Take a screenshot of just the chart, then upload to the analyzer.
 
 ---
 
-## 8. Performance Tuning for Mobile
+## 7. Performance Tuning for Mobile
 
 The app runs ML models that can be CPU-intensive. Adjust these settings for smoother mobile performance:
 
@@ -154,12 +189,13 @@ export MKL_NUM_THREADS=2
 export OPENBLAS_NUM_THREADS=2
 
 # Then run
+source venv/bin/activate
 python -m streamlit run app.py --server.port 8501 --server.headless true
 ```
 
 ---
 
-## 9. Persistent Service (Keep Running)
+## 8. Persistent Service (Keep Running)
 
 ### Option A: tmux (Recommended)
 
@@ -170,6 +206,8 @@ pkg install -y tmux
 tmux new -s forex
 
 # Start the app
+cd ~/forex-chart-analyzer
+source venv/bin/activate
 python -m streamlit run app.py --server.port 8501 --server.headless true
 
 # Detach: Press Ctrl+B then D
@@ -179,30 +217,60 @@ python -m streamlit run app.py --server.port 8501 --server.headless true
 ### Option B: nohup
 
 ```bash
+cd ~/forex-chart-analyzer
+source venv/bin/activate
 nohup python -m streamlit run app.py --server.port 8501 --server.headless true > streamlit.log 2>&1 &
 ```
 
 ---
 
-## 10. Troubleshooting
+## 9. Troubleshooting
+
+### `externally-managed-environment` error
+
+This is the #1 reason to use venv. If you see:
+```
+error: externally-managed-environment
+× This environment is externally managed
+```
+**Solution**: Always use the venv:
+```bash
+source venv/bin/activate
+pip install <package>
+```
+Never run `pip install` outside the venv.
 
 ### pip install fails with compilation error
 
 ```bash
 pkg install -y cmake ndk-sysroot
+source venv/bin/activate
 pip install <package> --no-binary :all:
 ```
 
 ### OpenCV won't install
 
 ```bash
+source venv/bin/activate
 pip install opencv-python-headless
 # NOT opencv-python (requires GUI libraries not available in Termux)
+```
+
+### venv activation fails
+
+```bash
+# If venv/bin/activate doesn't exist, recreate it:
+cd ~/forex-chart-analyzer
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
 ```
 
 ### Streamlit not found
 
 ```bash
+# Make sure venv is activated first!
+source venv/bin/activate
 python -m streamlit run app.py
 # NOT: streamlit run app.py
 ```
@@ -243,49 +311,85 @@ termux-setup-storage
 # Accept the permission prompt
 ```
 
----
-
-## 11. Quick-Start Script (Copy-Paste)
-
-One-shot install everything:
+### numpy/scipy wheel not found for aarch64
 
 ```bash
-pkg update -y && pkg upgrade -y && \
-pkg install -y git python python-pip build-essential libffi openssl rust binutils && \
-termux-setup-storage && \
-pip install --upgrade pip setuptools wheel && \
-pip install numpy scipy scikit-learn opencv-python-headless Pillow streamlit plotly xgboost pandas && \
-cd ~ && \
-git clone https://github.com/Devcode940/forex-chart-analyzer.git && \
-cd forex-chart-analyzer && \
-echo "✅ Installation complete! Run with:" && \
-echo "   cd ~/forex-chart-analyzer && python -m streamlit run app.py --server.port 8501 --server.headless true"
+# Make sure you're on the latest pip
+source venv/bin/activate
+pip install --upgrade pip
+
+# If still failing, build from source
+pkg install -y rust
+pip install numpy --no-binary :all:
 ```
 
----
-
-## 12. Updating
+### Clean reinstall (nuke and rebuild)
 
 ```bash
 cd ~/forex-chart-analyzer
-git pull origin main
+rm -rf venv/
+python -m venv venv
+source venv/bin/activate
+pip install --upgrade pip setuptools wheel
 pip install -r requirements.txt
 ```
 
 ---
 
-## Architecture on Termux
+## 10. Quick-Start Script (Copy-Paste)
+
+One-shot install everything with venv:
+
+```bash
+pkg update -y && pkg upgrade -y && \
+pkg install -y git python build-essential libffi openssl rust binutils && \
+termux-setup-storage && \
+cd ~ && \
+git clone https://github.com/Devcode940/forex-chart-analyzer.git && \
+cd forex-chart-analyzer && \
+python -m venv venv && \
+source venv/bin/activate && \
+pip install --upgrade pip setuptools wheel && \
+pip install -r requirements.txt && \
+echo "" && \
+echo "✅ Installation complete!" && \
+echo "Run anytime with:" && \
+echo "  cd ~/forex-chart-analyzer && source venv/bin/activate && python -m streamlit run app.py --server.port 8501 --server.headless true"
+```
+
+---
+
+## 11. Updating
+
+```bash
+cd ~/forex-chart-analyzer
+git pull origin main
+source venv/bin/activate
+pip install -r requirements.txt
+```
+
+---
+
+## 12. Directory Structure on Termux
 
 ```
 /data/data/com.termux/files/home/
 ├── forex-chart-analyzer/
+│   ├── venv/                           ← Isolated Python environment
+│   │   ├── bin/
+│   │   │   ├── activate                ← Source this before running
+│   │   │   ├── python                  ← venv's own Python
+│   │   │   └── pip                     ← venv's own pip (no crashes)
+│   │   └── lib/
+│   │       └── python3.x/
+│   │           └── site-packages/      ← All pip packages live here
 │   ├── app.py                          ← Streamlit entry point
 │   ├── analyzers/                      ← 25 analysis modules
 │   ├── utils/                          ← Visualizer
 │   ├── data/
 │   │   └── trade_database.db           ← Auto-created SQLite DB
 │   ├── requirements.txt
-│   └── run.sh
+│   └── run.sh                          ← Auto-activates venv
 └── storage/                            ← Android storage access
     └── shared/                         ← Screenshots live here
 ```
@@ -298,7 +402,7 @@ pip install -r requirements.txt
 |-------------|---------|-------------|
 | Android | 10+ | 12+ |
 | RAM | 4 GB | 6 GB+ |
-| Storage | 500 MB free | 1 GB free |
+| Storage | 1 GB free | 2 GB free (venv + packages) |
 | CPU | ARM64, 4 cores | ARM64, 8 cores |
 | Termux | 0.118+ | Latest from F-Droid |
 
@@ -310,7 +414,8 @@ pip install -r requirements.txt
 - No internet connection required after installation
 - The SQLite database is stored locally in `data/`
 - Trade journal entries are private to your device
-- GitHub token is NOT stored in the codebase (excluded via .gitignore)
+- venv is excluded from git via `.gitignore` (never committed)
+- GitHub token is NOT stored in the codebase
 
 ---
 

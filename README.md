@@ -184,6 +184,14 @@ When the system says "85% confidence", what actually happened?
 ## 🚀 Quick Start
 
 ```bash
+# Clone the repository
+git clone https://github.com/Devcode940/forex-chart-analyzer.git
+cd forex-chart-analyzer
+
+# Create and activate virtual environment (prevents pip crashes)
+python -m venv venv
+source venv/bin/activate
+
 # Install dependencies
 pip install -r requirements.txt
 
@@ -192,6 +200,8 @@ python -m streamlit run app.py
 ```
 
 Then open your browser to `http://localhost:8501`
+
+> **Why venv?** Installing directly with system pip can cause crashes on some platforms (especially Termux/macOS). The venv isolates all dependencies cleanly.
 
 ---
 

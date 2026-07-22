@@ -1,5 +1,6 @@
 #!/bin/bash
 # Quick launch script for Forex Chart Analyzer Pro
+# Auto-activates venv to avoid pip/system Python conflicts
 
 echo "🔍 Forex Chart Analyzer Pro"
 echo "==========================="
@@ -11,10 +12,17 @@ if [ ! -f "app.py" ]; then
     exit 1
 fi
 
-# Install dependencies if needed
-if ! python -c "import streamlit" 2>/dev/null; then
-    echo "📦 Installing dependencies..."
-    pip install -q -r requirements.txt
+# Create venv if it doesn't exist
+if [ ! -d "venv" ]; then
+    echo "📦 Creating virtual environment..."
+    python -m venv venv
+    echo "📦 Installing dependencies into venv..."
+    source venv/bin/activate
+    pip install --upgrade pip setuptools wheel
+    pip install -r requirements.txt
+else
+    # Activate existing venv
+    source venv/bin/activate
 fi
 
 echo "🚀 Starting Forex Chart Analyzer Pro..."
