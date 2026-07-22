@@ -1,6 +1,6 @@
 # 🧬 How 85%+ Confidence Is Determined — Honest Answer & Premium Methods
 
-## ⚠️ THE BRUTAL HONESTY
+## ⚠️ HOW CONFIDENCE WORKS
 
 ### What the CURRENT Algorithm Actually Does
 
@@ -35,7 +35,7 @@ A pattern that scores 85% heuristically might only have a **55% actual win rate*
 
 ---
 
-## 🔬 THE 5 PREMIUM METHODS THAT FIX THIS
+## 🔬 STATISTICAL METHODS
 
 ### Method 1: Monte Carlo Simulation
 
@@ -140,7 +140,7 @@ The validator votes:
 
 ---
 
-## 💎 EVEN MORE PREMIUM METHODS (Not Yet Implemented)
+## 💎 FUTURE METHODS (Not Yet Implemented)
 
 These are what professional quant desks and hedge funds use:
 

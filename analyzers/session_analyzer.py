@@ -12,7 +12,6 @@ This is critical because:
 
 import numpy as np
 
-
 class SessionAnalyzer:
     """
     Analyzes the trading session context based on the chart's
@@ -270,3 +269,4 @@ class SessionAnalyzer:
             "USDCAD": {"best": "NEW_YORK", "second": "LONDON_NY_OVERLAP"},
         }
         return pair_sessions.get(pair, {"best": "LONDON_NY_OVERLAP", "second": "LONDON"})
+

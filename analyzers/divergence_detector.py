@@ -1,7 +1,7 @@
 """
 Divergence Detector Module
 Detects regular and hidden divergences between price and momentum.
-Divergence is one of the most powerful reversal/continuation signals in forex.
+Divergence detects momentum disagreements between price and indicators.
 
 Regular Divergence = Trend Reversal Signal
 Hidden Divergence = Trend Continuation Signal
@@ -9,7 +9,6 @@ Hidden Divergence = Trend Continuation Signal
 
 import numpy as np
 from scipy.signal import argrelextrema
-
 
 class DivergenceDetector:
     """
@@ -298,3 +297,4 @@ class DivergenceDetector:
                                     x_pos[p_idx2] if p_idx2 < len(x_pos) else 0
                                 )
                             })
+

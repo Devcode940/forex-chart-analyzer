@@ -9,12 +9,11 @@ it COMPOUNDS. This engine models that compounding effect.
 
 import numpy as np
 
-
 class ConfluenceEngine:
     """
     Calculates a master confluence score that compounds multiple signals.
-    
-    Philosophy: 5 weak signals all pointing bullish is MUCH stronger than 
+
+    Philosophy: 5 weak signals all pointing bullish is MUCH stronger than
     1 strong signal. Most traders miss this because they evaluate signals in isolation.
     """
 
@@ -287,7 +286,6 @@ class ConfluenceEngine:
                 "alternative": "Set alerts at key S/R levels and wait for a clear breakout or reversal signal."
             }
 
-        # Find the best matching SL/TP scenario
         best_scenario = None
         for scenario in sltp.get("scenarios", []):
             if direction == "BULLISH" and scenario.get("direction") == "BUY":
@@ -297,7 +295,6 @@ class ConfluenceEngine:
                 if best_scenario is None or scenario.get("risk_reward", 0) > best_scenario.get("risk_reward", 0):
                     best_scenario = scenario
 
-        # Find the best matching candlestick entry trigger
         entry_trigger = None
         for signal in self.signals:
             if signal["source"] == "Candlestick" and signal["direction"] == direction:
@@ -379,3 +376,4 @@ class ConfluenceEngine:
             categories[source]["signals"].append(signal["name"])
 
         return categories
+

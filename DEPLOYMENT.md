@@ -1,6 +1,6 @@
 # 🚀 Deployment Guide
 
-## Forex Chart Analyzer Pro v2 — Install & Run on Any Platform
+## Forex Chart Analyzer — Install & Run on Any Platform
 
 ---
 

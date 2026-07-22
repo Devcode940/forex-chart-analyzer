@@ -1,6 +1,6 @@
-# 🔍 Forex Chart Analyzer Pro v2
+# 🔍 Forex Chart Analyzer
 
-**AI-Powered Forex Chart Image Analysis** — Upload any forex chart screenshot and get instant pattern recognition, market structure analysis, regime classification, ML ensemble prediction, statistical validation, and Kelly Criterion position sizing.
+**Forex Chart Image Analysis** — Upload any forex chart screenshot and get pattern recognition, market structure analysis, regime classification, ML ensemble prediction, statistical validation, and Kelly Criterion position sizing.
 
 ![Python](https://img.shields.io/badge/Python-3.11+-blue)
 ![Streamlit](https://img.shields.io/badge/Streamlit-1.28+-red)

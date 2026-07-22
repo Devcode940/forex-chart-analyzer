@@ -16,11 +16,10 @@ from sklearn.pipeline import Pipeline
 import warnings
 warnings.filterwarnings('ignore')
 
-
 class MLEnsemble:
     """
     Ensemble ML classifier for trade prediction.
-    
+
     Phase 1: Generate synthetic training data from pattern heuristics
     Phase 2: Train Random Forest + Gradient Boosting base learners
     Phase 3: Stack with Logistic Regression meta-learner
@@ -45,27 +44,15 @@ class MLEnsemble:
         """
         if len(feature_vector) == 0:
             return {"error": "No features extracted"}
-
-        # Step 1: Generate synthetic training data
         X_train, y_train = self._generate_synthetic_data(n_samples=2000)
-
-        # Step 2: Add current-adjacent samples from heuristic signals
         X_aug, y_aug = self._augment_with_heuristics(
             feature_vector, pattern_results, structure_results, regime_results, confluence_results
         )
         X_train = np.vstack([X_train, X_aug])
         y_train = np.concatenate([y_train, y_aug])
-
-        # Step 3: Train ensemble
         self._train_ensemble(X_train, y_train)
-
-        # Step 4: Predict on current features
         prediction = self._predict(feature_vector)
-
-        # Step 5: Cross-validation score
         cv_score = self._cross_validate(X_train, y_train)
-
-        # Step 6: Feature importance
         importance = self._feature_importance()
 
         return {
@@ -84,10 +71,10 @@ class MLEnsemble:
     def _generate_synthetic_data(self, n_samples: int = 2000):
         """
         Generate synthetic training data that mimics real forex feature distributions.
-        
+
         Each sample represents a "snapshot" of market features.
         Label = 1 if a long trade would have been profitable, 0 if short.
-        
+
         The synthetic data encodes domain knowledge:
         - Strong uptrend + low volatility → likely long winner
         - Strong downtrend + low volatility → likely short winner
@@ -289,8 +276,8 @@ class MLEnsemble:
                 "gb_cv_std": round(float(np.std(gb_cv)), 4),
                 "ensemble_estimate": round(float(np.mean([np.mean(rf_cv), np.mean(gb_cv)])), 4),
             }
-        except Exception:
-            return {"rf_cv_mean": 0, "gb_cv_mean": 0, "ensemble_estimate": 0}
+        except Exception as e:
+            return {"rf_cv_mean": 0, "rf_cv_std": 0, "gb_cv_mean": 0, "gb_cv_std": 0, "ensemble_estimate": 0, "cv_error": str(e)}
 
     def _feature_importance(self) -> list:
         """Get feature importance from both models."""
@@ -319,6 +306,6 @@ class MLEnsemble:
         names = FeatureEngineer.FEATURE_NAMES if idx < len(FeatureEngineer.FEATURE_NAMES) else [f"feature_{i}" for i in range(50)]
         return names[idx] if idx < len(names) else f"feature_{idx}"
 
-
 # Lazy import for feature names
 from analyzers.ml_feature_engineer import FeatureEngineer
+

@@ -1,4 +1,4 @@
-# 🔬 Forex Chart Analyzer Pro v2 — Complete Technical Breakdown
+# 🔬 Forex Chart Analyzer — Complete Technical Breakdown
 
 ## Every Technology, Algorithm & Method Used
 

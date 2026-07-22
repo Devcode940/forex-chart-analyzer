@@ -6,7 +6,6 @@ Classifies the current market regime: Trending, Ranging, Volatile, Quiet.
 import numpy as np
 from scipy.ndimage import gaussian_filter1d
 
-
 class RegimeClassifier:
     """Classifies the current market regime."""
 
@@ -158,3 +157,4 @@ class RegimeClassifier:
             "TRANSITIONAL": "Set alerts at key levels. Wait for confirmed breakout with volume. Have orders ready but don't preempt the move."
         }
         return recommendations.get(self.regime, "Wait for clearer market conditions.")
+

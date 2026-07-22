@@ -2,7 +2,7 @@
 Historical Trade Database
 ==========================
 SQLite-backed database that stores REAL backtested trades and live journal entries.
-This is the FOUNDATION — without real outcome data, all ML is guessing.
+This module stores trade outcomes for backtesting and calibration.
 
 Tables:
   - patterns: Pattern definitions with historical win rates
@@ -20,9 +20,7 @@ import numpy as np
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Tuple
 
-
 DB_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "trade_database.db")
-
 
 class TradeDatabase:
     """SQLite-backed trade database for real backtesting and calibration."""
@@ -573,4 +571,21 @@ class TradeDatabase:
         }
 
     def close(self):
-        self.conn.close()
+        """Close the database connection."""
+        if self.conn:
+            self.conn.close()
+            self.conn = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+        return False
+
+    def __del__(self):
+        try:
+            self.close()
+        except Exception:
+            pass
+

@@ -8,7 +8,6 @@ from scipy.signal import argrelextrema
 from scipy.ndimage import gaussian_filter1d
 from sklearn.cluster import DBSCAN
 
-
 class SRDetector:
     """Detects Support and Resistance levels from chart data."""
 
@@ -35,7 +34,6 @@ class SRDetector:
         # Method 3: Volume-based (approximation using price density)
         density_sr = self._density_based_detection(smoothed)
 
-        # Merge all detected levels
         all_supports = swing_sr["supports"] + cluster_sr["supports"] + density_sr["supports"]
         all_resistances = swing_sr["resistances"] + cluster_sr["resistances"] + density_sr["resistances"]
 
@@ -46,7 +44,6 @@ class SRDetector:
         # Identify key zones (confluence areas)
         key_zones = self._find_confluence_zones()
 
-        # Convert to image coordinates for visualization
         support_with_coords = []
         for sl in self.support_levels:
             support_with_coords.append({
@@ -161,7 +158,6 @@ class SRDetector:
         if not levels:
             return []
 
-        # Sort by level
         levels.sort(key=lambda x: x["level"])
 
         consolidated = []
@@ -171,7 +167,7 @@ class SRDetector:
             if abs(level["level"] - current_group[-1]["level"]) / (current_group[-1]["level"] + 1e-6) < tolerance:
                 current_group.append(level)
             else:
-                # Merge group
+
                 merged = {
                     "level": float(np.mean([l["level"] for l in current_group])),
                     "strength": min(1.0, sum(l["strength"] for l in current_group) / len(current_group) + 0.1 * len(current_group)),
@@ -188,7 +184,6 @@ class SRDetector:
         }
         consolidated.append(merged)
 
-        # Sort by strength
         consolidated.sort(key=lambda x: x["strength"], reverse=True)
 
         return consolidated[:6]  # Keep top 6 levels
@@ -206,3 +201,4 @@ class SRDetector:
                         "type": "CONFLUENCE"
                     })
         return zones
+

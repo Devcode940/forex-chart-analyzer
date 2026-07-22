@@ -16,7 +16,6 @@ from sklearn.calibration import CalibratedClassifierCV
 import warnings
 warnings.filterwarnings('ignore')
 
-
 class MetaLearner:
     """
     Master ML model that combines all sub-models into one prediction.
@@ -42,7 +41,7 @@ class MetaLearner:
     ) -> dict:
         """
         Combine ALL model outputs into a single master prediction.
-        
+
         Uses a voting scheme weighted by each model's estimated reliability.
         """
         predictions = {}
@@ -260,3 +259,4 @@ class MetaLearner:
             "recommended_risk_pct": round(risk, 2),
             "position_strength": "FULL" if risk >= 0.85 else "REDUCED" if risk >= 0.5 else "SMALL" if risk >= 0.25 else "NONE",
         }
+

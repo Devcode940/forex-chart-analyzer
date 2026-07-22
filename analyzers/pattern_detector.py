@@ -8,7 +8,6 @@ import numpy as np
 from scipy.signal import find_peaks
 from scipy.ndimage import gaussian_filter1d
 
-
 class PatternDetector:
     """Detects geometric chart patterns from price data with enhanced accuracy."""
 
@@ -19,14 +18,8 @@ class PatternDetector:
                    structure_context: dict = None) -> list:
         """Run all pattern detection algorithms with optional structure context.
 
-        Args:
-            price_series: Dict with 'smoothed', 'x', 'highs', 'lows' arrays.
-            image_height: Height of the source image in pixels.
-            structure_context: Optional dict from StructureAnalyzer with
                 'trend_direction' for trend-alignment confidence scoring.
 
-        Returns:
-            List of detected pattern dicts sorted by confidence descending.
         """
         self.detected_patterns = []
 
@@ -80,15 +73,9 @@ class PatternDetector:
                               trend_align: float = 1.0, quality: float = 1.0) -> float:
         """Compounded confidence from multiple independent factors.
 
-        Args:
-            base: Base confidence for this pattern type (0.4–0.8).
-            symmetry: Pattern symmetry score (0.0–1.0). 1.0 = perfectly symmetric.
-            trend_align: Alignment with known trend (0.7–1.2). >1 means
                 pattern matches expected trend context.
             quality: Data quality / noise score (0.7–1.0).
 
-        Returns:
-            Confidence clamped to [0.1, 0.95].
         """
         conf = base * symmetry * trend_align * quality
         return max(0.1, min(0.95, conf))
@@ -781,7 +768,6 @@ class PatternDetector:
             left_rim = highs[i]
             right_rim_candidate = None
 
-            # Find the next high that's near the same level as the left rim
             for j in range(i + 1, len(highs)):
                 candidate = highs[j]
                 rim_diff = abs(candidate["val"] - left_rim["val"])

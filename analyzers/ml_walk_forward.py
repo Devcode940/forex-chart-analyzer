@@ -19,7 +19,6 @@ from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_sc
 import warnings
 warnings.filterwarnings('ignore')
 
-
 class WalkForwardValidator:
     """
     Walk-forward cross-validation for trading strategy evaluation.
@@ -292,3 +291,4 @@ class WalkForwardValidator:
             "std_accuracy": round(float(acc_std), 3),
             "note": note,
         }
+

@@ -5,7 +5,6 @@ Calculates intelligent SL and TP levels based on pattern, structure, and S/R ana
 
 import numpy as np
 
-
 class SLTPCalculator:
     """Calculates Stop Loss and Take Profit levels."""
 
@@ -57,7 +56,6 @@ class SLTPCalculator:
             })
             rec["risk_reward"] = round(rr, 2)
 
-        # Sort by risk/reward
         self.recommendations.sort(key=lambda x: x.get("risk_reward", 0), reverse=True)
 
         return {
@@ -289,3 +287,4 @@ class SLTPCalculator:
                 "confidence": 0.4,
                 "source": "Aggressive (wide SL, big target)"
             })
+

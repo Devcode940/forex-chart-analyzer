@@ -13,7 +13,6 @@ We use HALF-KELLY for safety (full Kelly is too aggressive).
 import numpy as np
 from analyzers.trade_database import TradeDatabase
 
-
 class RealKellyCalculator:
     """Calculate Kelly-optimal position sizing from MEASURED statistics."""
 
@@ -23,14 +22,7 @@ class RealKellyCalculator:
     def calculate(self, setup_type: str, account_balance: float,
                   sl_pips: float, pair: str = "EURUSD") -> dict:
         """
-        Calculate Kelly-optimal position size from MEASURED data.
-
-        Args:
-            setup_type: Setup category (e.g., "confluence_a_grade")
-            account_balance: Account balance in USD
-            sl_pips: Stop loss distance in pips
-            pair: Currency pair for pip value
-        """
+        Calculate Kelly-optimal position size from MEASURED data.        """
         kelly_data = self.db.get_kelly_params(setup_type)
 
         if not kelly_data:
@@ -128,12 +120,17 @@ class RealKellyCalculator:
         return 0
 
     def _pip_value(self, pair: str) -> float:
-        """Get pip value per standard lot."""
+        """Get pip value per standard lot for position sizing.
+
+        Values are approximate and assume standard lot sizes.
+        XAUUSD uses $1/pip (1 oz lot); for 100-oz lots use $10/pip.
+        Adjust based on your broker's contract specifications.
+        """
         values = {
             "EURUSD": 10.0, "GBPUSD": 10.0, "AUDUSD": 10.0, "NZDUSD": 10.0,
             "USDJPY": 6.5, "EURJPY": 6.5, "GBPJPY": 6.5,
             "USDCHF": 10.5, "USDCAD": 7.5, "AUDJPY": 6.5,
-            "XAUUSD": 1.0,
+            "XAUUSD": 1.0, "US30": 1.0, "NAS100": 1.0,
         }
         return values.get(pair, 10.0)
 
@@ -153,7 +150,7 @@ class RealKellyCalculator:
     def _recommendation(self, full_kelly: float, wr: float, n: int, risk: float) -> str:
         """Generate Kelly-based recommendation."""
         if full_kelly <= 0:
-            return "🔴 NO EDGE DETECTED: Kelly is negative — this setup has no statistical edge. DO NOT TRADE."
+            return "🔴 No edge: Kelly is negative for this setup. Do not trade."
 
         if n < 30:
             return f"⚠️ INSUFFICIENT DATA: Only {n} trades. Kelly is unreliable with < 30 samples. Use minimum position size."
@@ -168,3 +165,4 @@ class RealKellyCalculator:
             return f"✅ GOOD EDGE: Full Kelly = {full_kelly:.1%}. Half-Kelly ({risk:.2%} risk) gives good growth with manageable drawdowns."
 
         return f"🟢 STRONG EDGE: Full Kelly = {full_kelly:.1%}. But DO NOT use full Kelly! Half-Kelly ({risk:.2%} risk) is the maximum recommended."
+

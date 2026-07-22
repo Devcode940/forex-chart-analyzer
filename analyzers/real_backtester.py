@@ -12,7 +12,6 @@ This is what makes the system honest:
 import numpy as np
 from analyzers.trade_database import TradeDatabase
 
-
 class RealBacktester:
     """
     Backtests current analysis against the historical trade database.
@@ -161,7 +160,7 @@ class RealBacktester:
             if hf > 0:
                 kelly_rec = f"Half-Kelly suggests {hf:.1%} risk per trade for this setup"
             else:
-                kelly_rec = "Kelly says NO EDGE — do not trade this setup"
+                kelly_rec = "Kelly is negative — no statistical edge for this setup"
 
         # Calibration
         cal_note = ""
@@ -177,7 +176,7 @@ class RealBacktester:
             verdict = "🟡 PARTIALLY VALIDATED: Some overconfidence detected. Reduce size."
             risk_adj = 0.75
         elif len(issues) > 0:
-            verdict = "🔴 OVERCONFIDENCE DETECTED: Heuristic scores exceed measured win rates. Reduce risk significantly."
+            verdict = "🔴 Overconfidence: heuristic scores exceed measured win rates. Reduce risk."
             risk_adj = 0.5
         else:
             verdict = "⚪ NO BACKTEST DATA: Cannot validate against history. Trade with extreme caution."
@@ -191,3 +190,4 @@ class RealBacktester:
             "kelly_recommendation": kelly_rec,
             "calibration_note": cal_note,
         }
+

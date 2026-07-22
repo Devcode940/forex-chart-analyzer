@@ -8,7 +8,6 @@ import numpy as np
 from scipy.signal import argrelextrema
 from scipy.ndimage import gaussian_filter1d
 
-
 class StructureAnalyzer:
     """Analyzes market structure from extracted price data."""
 
@@ -102,7 +101,6 @@ class StructureAnalyzer:
         if len(self.swing_highs) < 2 and len(self.swing_lows) < 2:
             return {"direction": "RANGING", "strength": 0.3}
 
-        # Check if swing highs are trending up
         sh_values = [s["value"] for s in self.swing_highs]
         sl_values = [s["value"] for s in self.swing_lows]
 
@@ -195,3 +193,4 @@ class StructureAnalyzer:
             })
 
         return phases
+

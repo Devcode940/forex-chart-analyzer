@@ -6,7 +6,6 @@ Auto-calculates Fib levels from swing points for entry, SL, and TP zones.
 import numpy as np
 from typing import Optional
 
-
 class FibonacciCalculator:
     """Calculates Fibonacci retracement and extension levels."""
 
@@ -54,7 +53,7 @@ class FibonacciCalculator:
             sig_high = {"value": high_val, "index": smoothed.index(high_val) if isinstance(smoothed, list) else int(np.argmax(smoothed))}
             sig_low = {"value": low_val, "index": smoothed.index(low_val) if isinstance(smoothed, list) else int(np.argmin(smoothed))}
         else:
-            # Find the most significant swing high and swing low
+
             sig_high = max(swing_highs, key=lambda s: s["value"])
             sig_low = min(swing_lows, key=lambda s: s["value"])
 
@@ -239,3 +238,4 @@ class FibonacciCalculator:
                 })
 
         return confluences
+

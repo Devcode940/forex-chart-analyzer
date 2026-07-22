@@ -8,7 +8,6 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 import io
 
-
 class Visualizer:
     """Creates visual overlays on forex chart images."""
 
@@ -50,8 +49,8 @@ class Visualizer:
                             structure_results: dict,
                             sltp_results: dict,
                             regime_results: dict) -> np.ndarray:
-        """Create a comprehensive annotated overlay."""
-        # Convert to PIL for easier text rendering
+        """Create an annotated overlay of all detected features."""
+
         pil_img = Image.fromarray(original_image)
         draw = ImageDraw.Draw(pil_img, "RGBA")
 
@@ -317,3 +316,4 @@ class Visualizer:
             draw.text((10, 80 + i * 18), line, fill=(180, 180, 180, 255))
 
         return np.array(pil_canvas)
+

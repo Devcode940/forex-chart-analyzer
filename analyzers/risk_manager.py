@@ -6,7 +6,6 @@ Converts abstract price units to pip values for major forex pairs.
 
 import numpy as np
 
-
 class RiskManager:
     """
     Professional position sizing calculator.
@@ -37,24 +36,13 @@ class RiskManager:
                   risk_percent: float = 1.0,
                   pair: str = "EURUSD") -> dict:
         """
-        Calculate full risk management profile.
-        
-        Args:
-            sltp_results: SL/TP analysis results
-            sr_results: Support/Resistance results
-            structure_results: Market structure analysis
-            image_height: Height of the chart image
-            account_balance: Account balance in USD
-            risk_percent: Risk per trade as percentage
-            pair: Forex pair for pip calculation
-        """
+        Calculate full risk management profile.        """
         best = sltp_results.get("best_scenario", {})
         scenarios = sltp_results.get("scenarios", [])
 
         if not best and not scenarios:
             return {"error": "No SL/TP data available for risk calculation"}
 
-        # Filter out scenarios with zero SL distance
         valid_scenarios = [s for s in scenarios if s.get("sl") is not None and s.get("entry") is not None and abs(s.get("entry", 0) - s.get("sl", 0)) > 0.001]
         if best and (best.get("sl") is None or best.get("entry") is None or abs(best.get("entry", 0) - best.get("sl", 0)) < 0.001):
             best = valid_scenarios[0] if valid_scenarios else None
@@ -169,7 +157,7 @@ class RiskManager:
             "risk_amount_usd": round(actual_risk, 2),
             "profit_potential_usd": round(profit_potential, 2),
             "actual_risk_pct": round(actual_risk_pct, 2),
-            "break_even_price": tp if scenario.get("direction") == "BUY" else tp,
+            "break_even_price": entry,
             "risk_per_pip": round(lots * pip_val, 2),
         }
 
@@ -293,3 +281,4 @@ class RiskManager:
             "🔄 Risk the same % on every trade — don't vary based on 'confidence'",
             "📋 Journal every trade: entry reason, SL, TP, outcome, lessons learned",
         ]
+

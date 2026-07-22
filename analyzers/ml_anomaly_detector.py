@@ -15,7 +15,6 @@ from sklearn.decomposition import PCA
 import warnings
 warnings.filterwarnings('ignore')
 
-
 class MLAnomalyDetector:
     """
     Detects anomalous market states using multiple methods.
@@ -215,3 +214,4 @@ class MLAnomalyDetector:
             "EXTREME": f"Risk multiplier: {risk_mult}×. Consider staying flat. If you must trade, use minimum size and very wide stops. Pattern reliability is LOW.",
         }
         return recs.get(level, "Proceed with caution.")
+

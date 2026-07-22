@@ -1,6 +1,6 @@
 """
-Forex Chart Analyzer Pro v2 — Main Application
-Upload forex chart images for AI-powered pattern recognition, structure analysis,
+Forex Chart Analyzer — Main Application
+Upload forex chart images for pattern recognition, structure analysis,
 regime classification, divergence detection, Fib levels, liquidity zones,
 confluence scoring, risk management, and SL/TP recommendations.
 """
@@ -44,10 +44,9 @@ from analyzers.real_kelly import RealKellyCalculator
 from analyzers.real_calibrator import RealCalibrator
 from utils.visualizer import Visualizer
 
-
 # ─── Page Config ───────────────────────────────────────────────────────────────
 st.set_page_config(
-    page_title="🔍 Forex Chart Analyzer Pro v2",
+    page_title="Forex Chart Analyzer",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -93,7 +92,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-
 # ─── Init State ────────────────────────────────────────────────────────────────
 def init_state():
     keys = {
@@ -130,7 +128,6 @@ def init_state():
             st.session_state[k] = v
 
 init_state()
-
 
 # ─── Analysis Pipeline ─────────────────────────────────────────────────────────
 def run_analysis(image: np.ndarray, account_balance: float, risk_pct: float, pair: str):
@@ -237,9 +234,8 @@ def run_analysis(image: np.ndarray, account_balance: float, risk_pct: float, pai
 
     st.session_state.analysis_complete = True
 
-
 # ─── MAIN UI ───────────────────────────────────────────────────────────────────
-st.markdown('<h1 class="main-header">🔍 Forex Chart Analyzer Pro v2</h1>', unsafe_allow_html=True)
+st.markdown('<h1 class="main-header">🔍 Forex Chart Analyzer</h1>', unsafe_allow_html=True)
 st.markdown('<p class="sub-header">Pattern Recognition • Candlestick Analysis • Fibonacci • Divergence • Liquidity Zones • Confluence Scoring • Risk Management</p>', unsafe_allow_html=True)
 
 # ─── Sidebar ───────────────────────────────────────────────────────────────────
@@ -400,7 +396,7 @@ if uploaded_file is not None:
         trade_plan = confluence.get("trade_plan", {})
         if trade_plan.get("action") != "DO NOT TRADE":
             st.markdown("---")
-            st.markdown("## 🚀 Trade Execution Plan")
+            st.markdown("## Trade Execution Plan")
 
             plan_direction = trade_plan.get("action", "")
             plan_grade = trade_plan.get("confluence_grade", "")
@@ -877,7 +873,7 @@ if uploaded_file is not None:
         with tabs[9]:
             st.markdown("### 🔬 Statistical Validation — Is Your >85% Confidence Real?")
             st.warning(
-                "⚠️ **HONEST DISCLOSURE:** The confluence engine uses *heuristic confidence scoring* — "
+                "⚠️ **Note:** The confluence engine uses *heuristic confidence scoring* — "
                 "these are expert-system scores, NOT true statistical probabilities. "
                 "This tab runs **4 premium statistical methods** to validate whether "
                 "your confidence score is genuinely supported by the data."
@@ -1369,7 +1365,7 @@ else:
     <div style="text-align:center;padding:2rem 1rem;">
         <h2 style="color:#3a7bd5;">Upload a Forex Chart to Begin Analysis</h2>
         <p style="color:#8899aa;font-size:1rem;max-width:700px;margin:1rem auto;">
-            AI-powered analysis: 10+ geometric patterns, 17 candlestick patterns, Fibonacci levels,
+            Automated analysis: 10+ geometric patterns, 17 candlestick patterns, Fibonacci levels,
             divergence detection, liquidity zones, confluence scoring, risk management, and session context.
         </p>
     </div>
@@ -1400,3 +1396,4 @@ else:
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown('<p style="text-align:center;color:#6677aa;">⬆️ Upload a chart image using the sidebar to get started</p>', unsafe_allow_html=True)
+

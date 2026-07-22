@@ -43,7 +43,7 @@ def validate_keys(name: str, actual: dict, required_keys: list) -> bool:
 
 def main():
     print("=" * 60)
-    print("FOREX CHART ANALYZER PRO v2 - VALIDATION")
+    print("FOREX CHART ANALYZER - VALIDATION")
     print("=" * 60)
 
     img = create_test_chart()

@@ -10,7 +10,6 @@ This is the engine that makes your "85% confidence" claim honest.
 import numpy as np
 from analyzers.trade_database import TradeDatabase
 
-
 class RealCalibrator:
     """Calibrates heuristic confidence using MEASURED historical win rates."""
 
@@ -93,7 +92,7 @@ class RealCalibrator:
         }
 
     def _honest_assessment(self, raw, calibrated, adj, grade_wr, pattern_cals):
-        """Generate brutally honest assessment."""
+        """Generate assessment comparing heuristic vs measured probabilities."""
         lines = []
 
         # Main assessment
@@ -139,3 +138,4 @@ class RealCalibrator:
                 )
 
         return " ".join(lines)
+

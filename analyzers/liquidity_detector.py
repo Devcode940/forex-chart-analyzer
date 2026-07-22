@@ -10,7 +10,6 @@ Price often sweeps that zone before reversing.
 import numpy as np
 from scipy.signal import argrelextrema
 
-
 class LiquidityDetector:
     """
     Detects liquidity pools, equal highs/lows, and stop hunt zones.
@@ -212,14 +211,13 @@ class LiquidityDetector:
         swing_highs = structure.get("swing_highs", [])
         swing_lows = structure.get("swing_lows", [])
 
-        # Check if recent price swept above any prior swing high
         for sh in swing_highs:
             sh_level = sh["value"]
             # Did recent price go above this level?
             for i, price in enumerate(recent):
                 idx = i + recent_start
                 if price > sh_level:
-                    # Check if it reversed back below
+
                     if i + 3 < len(recent) and recent[i + 3] < sh_level:
                         sweeps.append({
                             "level": sh_level,
@@ -234,7 +232,6 @@ class LiquidityDetector:
                         })
                         break
 
-        # Check if recent price swept below any prior swing low
         for sl in swing_lows:
             sl_level = sl["value"]
             for i, price in enumerate(recent):
@@ -333,3 +330,4 @@ class LiquidityDetector:
         else:
             return ("Balanced liquidity on both sides. Wait for a sweep on one side "
                     "then trade the reversal.")
+

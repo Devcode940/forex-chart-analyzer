@@ -1,7 +1,7 @@
 """
 Image Processor Module — Enhanced
 Handles image upload, preprocessing, adaptive color segmentation (KMeans + HSV),
-chart grid extraction, and robust price series extraction with noise filtering.
+chart grid extraction, and price series extraction with noise filtering.
 """
 
 import cv2
@@ -9,7 +9,6 @@ import numpy as np
 from PIL import Image
 import io
 from sklearn.cluster import KMeans
-
 
 class ImageProcessor:
     """Preprocesses forex chart images for analysis with adaptive color detection."""
@@ -51,7 +50,7 @@ class ImageProcessor:
         return results
 
     def extract_chart_colors(self, image: np.ndarray) -> dict:
-        """Adaptive KMeans + fixed HSV for robust candle color detection.
+        """Adaptive KMeans + fixed HSV for candle color detection.
 
         Uses KMeans clustering on HSV pixel space to discover dominant chart
         colors automatically, then applies widened HSV ranges for reliable
@@ -65,7 +64,6 @@ class ImageProcessor:
         sample_rate = 4
         pixels = hsv[::sample_rate, ::sample_rate].reshape(-1, 3).astype(np.float32)
 
-        # Filter out near-black and near-white pixels (background)
         brightness = pixels[:, 2]
         valid_mask = (brightness > 20) & (brightness < 240)
         valid_pixels = pixels[valid_mask]
@@ -85,12 +83,12 @@ class ImageProcessor:
         red_cluster_pixels = 0
         for center in centers:
             h_val, s_val, v_val = center
-            # Green range
+
             if 35 <= h_val <= 90 and s_val >= 30 and v_val >= 30:
                 mask = cv2.inRange(hsv, np.array([max(0, h_val - 15), max(0, s_val - 40), max(0, v_val - 40)]),
                                    np.array([min(179, h_val + 15), min(255, s_val + 40), min(255, v_val + 40)]))
                 green_cluster_pixels += cv2.countNonZero(mask)
-            # Red range (wraps around 0/180)
+
             if (h_val <= 15 or h_val >= 165) and s_val >= 30 and v_val >= 30:
                 lower_h = max(0, h_val - 15) if h_val <= 15 else max(165, h_val - 15)
                 upper_h = min(15, h_val + 15) if h_val <= 15 else min(180, h_val + 15)
@@ -98,7 +96,7 @@ class ImageProcessor:
                                    np.array([upper_h, min(255, s_val + 40), min(255, v_val + 40)]))
                 red_cluster_pixels += cv2.countNonZero(mask)
 
-        # ── Fixed HSV ranges (widened for robustness) ──
+        # ── Fixed HSV ranges (widened) ──
         green_mask = cv2.inRange(hsv, np.array([35, 30, 30]), np.array([90, 255, 255]))
         red_mask1 = cv2.inRange(hsv, np.array([0, 30, 30]), np.array([12, 255, 255]))
         red_mask2 = cv2.inRange(hsv, np.array([168, 30, 30]), np.array([180, 255, 255]))
@@ -135,7 +133,7 @@ class ImageProcessor:
         }
 
     def detect_grid_lines(self, edges: np.ndarray) -> dict:
-        """Improved Hough with multiple parameter sets for robust grid detection."""
+        """Hough transform with multiple parameter sets for grid detection."""
         # Primary detection
         h_lines = []
         v_lines = []
@@ -191,7 +189,7 @@ class ImageProcessor:
         """Merge nearby duplicate lines."""
         if not lines:
             return []
-        # Sort by position
+
         key = (lambda l: l[1]) if horizontal else (lambda l: l[0])
         lines = sorted(lines, key=key)
         merged = [lines[0]]
@@ -206,7 +204,7 @@ class ImageProcessor:
         return merged
 
     def extract_price_series(self, image: np.ndarray, color_mask: np.ndarray) -> list:
-        """Extract price data points with IQR noise filtering for robustness."""
+        """Extract price data points with IQR outlier filtering."""
         h, w = color_mask.shape
         points = []
         num_slices = min(w, 250)
@@ -289,3 +287,4 @@ class ImageProcessor:
             "channels": image.shape[2] if len(image.shape) == 3 else 1,
             "mean_brightness": np.mean(self.gray_image) if self.gray_image is not None else 0,
         }
+

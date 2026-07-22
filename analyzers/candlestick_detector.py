@@ -7,7 +7,6 @@ Doji, Hammer, Shooting Star, Engulfing, Pin Bar, Morning/Evening Star, etc.
 import numpy as np
 from typing import Optional
 
-
 class CandlestickDetector:
     """Detects individual candlestick patterns from price series data."""
 
@@ -377,3 +376,4 @@ class CandlestickDetector:
                     "Two candles with matching lows. Double support at this level.",
                     "Enter long above the high of the second candle. SL below the shared low."
                 )
+

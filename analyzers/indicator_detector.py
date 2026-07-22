@@ -9,7 +9,6 @@ Detects technical indicators already drawn on the chart image:
 import cv2
 import numpy as np
 
-
 class IndicatorDetector:
     """Detects technical indicator lines from the chart image."""
 
@@ -149,7 +148,6 @@ class IndicatorDetector:
                 length = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
                 angle = np.degrees(np.arctan2(y2 - y1, x2 - x1))
 
-                # Filter for meaningful diagonal lines (not horizontal/vertical grid)
                 if 10 < abs(angle) < 80 and length > 80:
                     if angle < 0:  # Rising line (image coords: y decreases upward)
                         line_type = "RISING_TRENDLINE"
@@ -182,7 +180,7 @@ class IndicatorDetector:
             for line in lines:
                 x1, y1, x2, y2 = line[0]
                 if abs(y2 - y1) < 3:  # Nearly horizontal
-                    # Check if it's drawn with a distinct color (not gray grid)
+
                     h, w = image.shape[:2]
                     if 0 < y1 < h and 0 < x1 < w and 0 < x2 < w:
                         # Sample colors along the line
@@ -277,3 +275,4 @@ class IndicatorDetector:
                 })
 
         return crossovers
+

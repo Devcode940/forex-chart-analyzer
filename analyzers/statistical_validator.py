@@ -2,12 +2,8 @@
 Statistical Confidence Validator & Probability Calibrator
 =========================================================
 
-THE HONEST TRUTH:
-The current system uses HEURISTIC confidence scoring — pattern geometry matching
-compounded via 1-∏(1-pᵢ). These are NOT true statistical probabilities.
-They are expert-system scores that APPROXIMATE confidence.
-
-This module adds PREMIUM statistical validation methods:
+Heuristic confidence scores (1-∏(1-pᵢ)) are not statistical probabilities.
+They are expert-system approximations. This module adds statistical validation:
 1. Monte Carlo Simulation — validate pattern win rates against random paths
 2. Bootstrap Confidence Intervals — true statistical confidence bounds
 3. Bayesian Probability Update — prior → posterior with evidence
@@ -22,7 +18,6 @@ from scipy import stats
 from scipy.special import comb
 from typing import List, Dict, Tuple, Optional
 
-
 class StatisticalValidator:
     """
     Premium statistical validation engine.
@@ -33,10 +28,7 @@ class StatisticalValidator:
         self.calibration_data = []
         self.monte_carlo_results = {}
         self.bootstrap_results = {}
-
-    # ================================================================
     # METHOD 1: MONTE CARLO SIMULATION
-    # ================================================================
     def monte_carlo_validation(
         self,
         price_series: dict,
@@ -47,28 +39,24 @@ class StatisticalValidator:
     ) -> dict:
         """
         Monte Carlo Simulation for Pattern Validation
-        
+
         HOW IT WORKS:
         1. Extract the statistical properties of the price series (drift, volatility)
         2. Generate 5000+ random price paths with the SAME properties
         3. Check how often the detected pattern appears in RANDOM data
         4. If a pattern appears 50% of the time in random data, it's NOT significant
         5. If it appears <5% of the time, the pattern IS statistically significant
-        
+
         THIS IS THE GOLD STANDARD for validating whether a pattern is real or noise.
         """
         smoothed = np.array(price_series.get("smoothed", []))
 
         if len(smoothed) < 20:
             return {"error": "Insufficient data for Monte Carlo simulation"}
-
-        # Step 1: Extract statistical properties
         returns = np.diff(smoothed) / (smoothed[:-1] + 1e-6)
         mu = np.mean(returns)
         sigma = np.std(returns)
         last_price = smoothed[-1]
-
-        # Step 2: Run simulations
         pattern_name = pattern_results[0]["name"] if pattern_results else "Unknown"
         pattern_direction = pattern_results[0].get("target_direction", "PENDING") if pattern_results else "PENDING"
 
@@ -109,8 +97,6 @@ class StatisticalValidator:
                         random_profitable += 1
                     if random_change <= actual_second_half_change:
                         random_strong_moves += 1
-
-        # Step 3: Calculate statistical significance
         random_win_rate = random_profitable / n_simulations if n_simulations > 0 else 0.5
         # How often does random data produce a move AS STRONG as the observed pattern?
         random_strong_rate = random_strong_moves / n_simulations if n_simulations > 0 else 0.5
@@ -155,11 +141,11 @@ class StatisticalValidator:
                          n_sims: int) -> float:
         """
         Bayesian adjustment: combine heuristic belief with empirical evidence.
-        
+
         Prior: heuristic confidence (our expert system's belief)
         Evidence: how often this happens in random data
         Posterior: the TRUE probability
-        
+
         Formula: P(H|E) = P(E|H) × P(H) / P(E)
         Simplified: posterior = (prior × likelihood) / evidence
         """
@@ -203,10 +189,7 @@ class StatisticalValidator:
                 f"🔴 NOT SIGNIFICANT: {stat_prob:.0%} vs {random_rate:.0%} random baseline. "
                 f"This pattern could easily appear in random data. DO NOT TRADE on this alone."
             )
-
-    # ================================================================
     # METHOD 2: BOOTSTRAP CONFIDENCE INTERVALS
-    # ================================================================
     def bootstrap_confidence_interval(
         self,
         price_series: dict,
@@ -215,13 +198,13 @@ class StatisticalValidator:
     ) -> dict:
         """
         Bootstrap Resampling for True Confidence Intervals
-        
+
         HOW IT WORKS:
         1. Resample the price returns 10,000 times (with replacement)
         2. For each resample, calculate the trend strength, volatility, etc.
         3. From the distribution of results, calculate TRUE confidence intervals
         4. This gives us: "We are 95% confident the true trend strength is between X and Y"
-        
+
         This is fundamentally different from saying "the pattern is 85% confident"
         — this gives you the STATISTICAL confidence of your measurement.
         """
@@ -327,22 +310,19 @@ class StatisticalValidator:
                 f"🔴 Low confidence: Win rate CI is [{wr_ci[0]:.1%}, {wr_ci[1]:.1%}]. "
                 f"Cannot reliably claim >85% confidence. Approach with extreme caution."
             )
-
-    # ================================================================
     # METHOD 3: SHANNON ENTROPY SCORING
-    # ================================================================
     def shannon_entropy_analysis(self, price_series: dict) -> dict:
         """
         Shannon Entropy — Measures How Much ACTUAL Information Is in the Signal
-        
+
         THE PROBLEM: Most "patterns" contain very little actual information.
         A Doji appearing on a chart might look significant, but if the market
         is random, it carries zero information.
-        
+
         Entropy measures: How surprised should we be by the current market state?
         - High entropy = unpredictable = noise = low confidence
         - Low entropy = predictable = information = high confidence
-        
+
         Maximum entropy for binary (up/down) = 1.0 bit (purely random)
         If we measure 0.3 bits, the market is 70% predictable
         """
@@ -393,7 +373,7 @@ class StatisticalValidator:
         """
         Calculate mutual information between consecutive bars.
         I(X;Y) = H(X) - H(X|Y)
-        
+
         If H(X|Y) < H(X), the past tells us something about the future.
         """
         if len(direction) < 5:
@@ -439,24 +419,21 @@ class StatisticalValidator:
                 f"Entropy is {entropy:.2f} bits — close to random. "
                 f"Patterns in this environment are likely NOISE, not signal. BE VERY CAUTIOUS."
             )
-
-    # ================================================================
     # METHOD 4: MARKOV CHAIN TRANSITION PROBABILITIES
-    # ================================================================
     def markov_chain_analysis(self, price_series: dict) -> dict:
         """
         Markov Chain — State Transition Probabilities
-        
+
         Models the market as a finite state machine:
         State 1: Strong Uptrend
-        State 2: Weak Uptrend  
+        State 2: Weak Uptrend
         State 3: Ranging
         State 4: Weak Downtrend
         State 5: Strong Downtrend
-        
+
         Calculates: Given we're in State X, what's the probability
         we transition to State Y in the next period?
-        
+
         This answers: "The pattern says bullish, but what's the probability
         the market STAYS bullish vs reverses?"
         """
@@ -557,10 +534,7 @@ class StatisticalValidator:
                 f"🔴 UNCERTAIN: Only {dominant_prob:.0%} directional probability. "
                 f"Market state transitions are too random for high-confidence predictions."
             )
-
-    # ================================================================
     # METHOD 5: COMPREHENSIVE PROBABILITY AUDIT
-    # ================================================================
     def full_probability_audit(
         self,
         price_series: dict,
@@ -572,10 +546,10 @@ class StatisticalValidator:
     ) -> dict:
         """
         THE ULTIMATE PROBABILITY AUDIT
-        
+
         Combines ALL premium methods to answer:
         "Can I genuinely claim >85% confidence in this trade?"
-        
+
         This is what professional quant desks do before allocating capital.
         """
         audit = {}
@@ -612,7 +586,7 @@ class StatisticalValidator:
                        confluence_conf: float) -> dict:
         """
         Aggregate verdict from all statistical methods.
-        
+
         A trade can only claim >85% if MULTIPLE methods agree.
         This is called "statistical convergence" — when different
         methods independently arrive at the same conclusion.
@@ -662,7 +636,7 @@ class StatisticalValidator:
             final_grade = "VALIDATED_85+"
             final_verdict = (
                 "✅ VALIDATED: 3+ methods independently confirm >85% confidence. "
-                "This is a statistically robust signal. Full position size justified."
+                "Statistically significant. Standard position sizing appropriate."
             )
         elif pass_count >= 2:
             final_grade = "PROBABLE_70-85"
@@ -697,3 +671,4 @@ class StatisticalValidator:
                 f"{'The signal IS genuine.' if pass_count >= 3 else 'The signal MAY be overconfident.'}"
             ),
         }
+

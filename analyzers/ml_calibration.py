@@ -18,11 +18,10 @@ from sklearn.preprocessing import StandardScaler
 import warnings
 warnings.filterwarnings('ignore')
 
-
 class CalibrationEngine:
     """
     Calibrates heuristic confidence scores to true statistical probabilities.
-    
+
     Without calibration: "85% confident" might only be right 60% of the time.
     With calibration: "85% confident" means it's actually right ~85% of the time.
     """
@@ -48,20 +47,13 @@ class CalibrationEngine:
         3. Apply to current heuristic scores
         4. Report calibrated vs uncalibrated probabilities
         """
-        # Step 1: Get heuristic scores
         heuristic_scores = self._extract_heuristic_scores(
             confluence_results, pattern_results, structure_results, regime_results
         )
-
-        # Step 2: Generate calibration data
         raw_scores, actual_outcomes = self._generate_calibration_data(n_samples=2000)
-
-        # Step 3: Fit calibration models
         self._fit_models(raw_scores, actual_outcomes)
 
         self.is_calibrated = True
-
-        # Step 4: Calibrate current scores
         calibrated = {}
         for score_name, raw_score in heuristic_scores.items():
             platt_cal = float(self.platt_model.predict_proba([[raw_score]])[0, 1])
@@ -78,8 +70,6 @@ class CalibrationEngine:
                 "adjustment": round(avg_cal - raw_score, 3),
                 "direction": "OVERCONFIDENT" if raw_score > avg_cal else "UNDERCONFIDENT",
             }
-
-        # Step 5: Main confluence calibration
         main_raw = confluence_results.get("master", {}).get("confidence", 0)
         main_platt = float(self.platt_model.predict_proba([[main_raw]])[0, 1])
         main_iso = float(self.isotonic_model.predict(np.array([main_raw])))
@@ -130,7 +120,7 @@ class CalibrationEngine:
         """
         Generate synthetic calibration data that models the typical
         overconfidence pattern in heuristic systems.
-        
+
         Key insight: Heuristic systems tend to be OVERCONFIDENT.
         A score of 0.9 usually corresponds to ~65-70% true probability.
         """
@@ -225,3 +215,4 @@ class CalibrationEngine:
                 })
 
         return diagram
+
