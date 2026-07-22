@@ -16,6 +16,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Cache pip
         uses: actions/cache@v4
@@ -35,7 +37,31 @@ jobs:
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           # Dev tools for linting and static checks
-          pip install --no-cache-dir black flake8 isort mypy pytest
+          pip install --no-cache-dir black isort flake8 mypy pytest
+
+      - name: Run black (format)
+        run: |
+          black .
+
+      - name: Run isort (format)
+        run: |
+          isort .
+
+      - name: Create branch and open PR if formatting changed
+        id: pr
+        uses: peter-evans/create-pull-request@v5
+        with:
+          commit-message: "chore: apply automatic formatting (black + isort)"
+          branch: "ci/format-fixes"
+          title: "chore: auto-format code (black + isort)"
+          body: |
+            This PR was opened automatically by CI to apply formatting fixes from black and isort.
+
+            If you prefer CI to commit directly to main, update the workflow accordingly.
+          base: main
+          committer: GitHub Actions <actions@github.com>
+          author: GitHub Actions <actions@github.com>
+          delete-branch: false
 
       - name: Run black (check)
         run: black --check .
@@ -44,10 +70,10 @@ jobs:
         run: isort --check-only .
 
       - name: Run flake8
-        run: flake8 . || true
+        run: flake8 .
 
       - name: Run mypy
-        run: mypy --ignore-missing-imports . || true
+        run: mypy --ignore-missing-imports .
 
       - name: Run validation script
         env:
