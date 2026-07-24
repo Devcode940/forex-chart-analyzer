@@ -8,7 +8,7 @@ Hidden Divergence = Trend Continuation Signal
 """
 
 import numpy as np
-from scipy.signal import argrelextrema
+from scipy.signal import find_peaks
 
 class DivergenceDetector:
     """
@@ -40,11 +40,14 @@ class DivergenceDetector:
         momentum = self._calc_momentum_oscillator(smoothed, period=14)
 
         # Find swings in both price and momentum
-        order = max(3, len(smoothed) // 12)
-        price_highs_idx = argrelextrema(smoothed, np.greater, order=order)[0]
-        price_lows_idx = argrelextrema(smoothed, np.less, order=order)[0]
-        mom_highs_idx = argrelextrema(momentum, np.greater, order=order)[0]
-        mom_lows_idx = argrelextrema(momentum, np.less, order=order)[0]
+        distance = max(3, len(smoothed) // 12)
+        price_prominence = np.ptp(smoothed) * 0.04 if len(smoothed) > 0 else 0.01
+        mom_prominence = np.ptp(momentum) * 0.04 if len(momentum) > 0 else 0.01
+
+        price_highs_idx, _ = find_peaks(smoothed, distance=distance, prominence=price_prominence)
+        price_lows_idx, _ = find_peaks(-smoothed, distance=distance, prominence=price_prominence)
+        mom_highs_idx, _ = find_peaks(momentum, distance=distance, prominence=mom_prominence)
+        mom_lows_idx, _ = find_peaks(-momentum, distance=distance, prominence=mom_prominence)
 
         # Detect Regular Bearish Divergence (price HH + momentum LH)
         self._detect_regular_bearish(smoothed, momentum, price_highs_idx, mom_highs_idx, x_positions)

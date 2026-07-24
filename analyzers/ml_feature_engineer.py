@@ -8,7 +8,7 @@ candle characteristics, and cross-timeframe properties.
 
 import numpy as np
 from scipy import stats
-from scipy.signal import argrelextrema
+from scipy.signal import find_peaks
 from scipy.ndimage import gaussian_filter1d
 
 class FeatureEngineer:
@@ -54,7 +54,7 @@ class FeatureEngineer:
 
         features = {}
 
-        # ── Momentum Features ──
+        # Momentum Features
         returns = np.diff(smoothed) / (smoothed[:-1] + 1e-8)
         features["return_1"] = float(returns[-1]) if len(returns) > 0 else 0
         features["return_5"] = float(np.sum(returns[-5:])) if len(returns) >= 5 else 0
@@ -71,7 +71,7 @@ class FeatureEngineer:
             else:
                 features[f"roc_{p}"] = 0
 
-        # ── Volatility Features ──
+        # Volatility Features
         for w in [5, 10, 20, 50]:
             if len(returns) >= w:
                 features[f"vol_{w}"] = float(np.std(returns[-w:]))
@@ -92,7 +92,7 @@ class FeatureEngineer:
         features["upper_wick_ratio"] = 0.3  # Approximate
         features["lower_wick_ratio"] = 0.3
 
-        # ── Trend Features ──
+        # Trend Features
         x = np.arange(len(smoothed))
         slope, intercept = np.polyfit(x, smoothed, 1)
         predicted = slope * x + intercept
@@ -118,10 +118,11 @@ class FeatureEngineer:
         path_length = np.sum(np.abs(np.diff(smoothed)))
         features["efficiency_ratio"] = float(net_change / path_length) if path_length > 0 else 0
 
-        # ── Structure Features ──
-        order = max(3, len(smoothed) // 15)
-        swing_highs = argrelextrema(smoothed, np.greater, order=order)[0]
-        swing_lows = argrelextrema(smoothed, np.less, order=order)[0]
+        # Structure Features
+        distance = max(3, len(smoothed) // 15)
+        prominence = np.ptp(smoothed) * 0.04 if len(smoothed) > 0 else 0.01
+        swing_highs, _ = find_peaks(smoothed, distance=distance, prominence=prominence)
+        swing_lows, _ = find_peaks(-smoothed, distance=distance, prominence=prominence)
 
         features["swing_high_count"] = len(swing_highs)
         features["swing_low_count"] = len(swing_lows)
@@ -152,7 +153,7 @@ class FeatureEngineer:
         features["bos_count_bull"] = 0  # Simplified
         features["bos_count_bear"] = 0
 
-        # ── Statistical Features ──
+        # Statistical Features
         features["skewness"] = float(stats.skew(returns)) if len(returns) > 2 else 0
         features["kurtosis"] = float(stats.kurtosis(returns)) if len(returns) > 3 else 0
 

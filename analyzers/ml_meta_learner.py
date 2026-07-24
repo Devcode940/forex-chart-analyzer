@@ -9,10 +9,7 @@ Combines ALL ML models into a single master prediction with:
 """
 
 import numpy as np
-from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier, VotingClassifier
-from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
-from sklearn.calibration import CalibratedClassifierCV
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -125,7 +122,7 @@ class MetaLearner:
                 "source": f"Walk-Forward (OOS accuracy: {wf_acc:.1%})",
             }
 
-        # ── Combine with weighted voting ──
+        # Combine with weighted voting
         if not predictions:
             return {
                 "master_probability": 0.5,

@@ -44,7 +44,7 @@ from analyzers.real_kelly import RealKellyCalculator
 from analyzers.real_calibrator import RealCalibrator
 from utils.visualizer import Visualizer
 
-# ─── Page Config ───────────────────────────────────────────────────────────────
+# Page Config
 st.set_page_config(
     page_title="Forex Chart Analyzer",
     page_icon="📊",
@@ -52,7 +52,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ─── Custom CSS ────────────────────────────────────────────────────────────────
+# Custom CSS
 st.markdown("""
 <style>
     .main-header {
@@ -92,7 +92,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ─── Init State ────────────────────────────────────────────────────────────────
+# Init State
 def init_state():
     keys = {
         "analysis_complete": False,
@@ -129,7 +129,7 @@ def init_state():
 
 init_state()
 
-# ─── Analysis Pipeline ─────────────────────────────────────────────────────────
+# Analysis Pipeline
 def run_analysis(image: np.ndarray, account_balance: float, risk_pct: float, pair: str):
     """Run the complete v2 analysis pipeline."""
     processor = st.session_state.image_processor
@@ -234,11 +234,11 @@ def run_analysis(image: np.ndarray, account_balance: float, risk_pct: float, pai
 
     st.session_state.analysis_complete = True
 
-# ─── MAIN UI ───────────────────────────────────────────────────────────────────
+# MAIN UI
 st.markdown('<h1 class="main-header">🔍 Forex Chart Analyzer</h1>', unsafe_allow_html=True)
 st.markdown('<p class="sub-header">Pattern Recognition • Candlestick Analysis • Fibonacci • Divergence • Liquidity Zones • Confluence Scoring • Risk Management</p>', unsafe_allow_html=True)
 
-# ─── Sidebar ───────────────────────────────────────────────────────────────────
+# Sidebar
 with st.sidebar:
     st.markdown("## 📤 Upload Chart")
     uploaded_file = st.file_uploader(
@@ -297,7 +297,7 @@ with st.sidebar:
     st.markdown("---")
     st.caption("⚠️ Educational only. Always manage risk properly.")
 
-# ─── Main Content ──────────────────────────────────────────────────────────────
+# Main Content
 if uploaded_file is not None:
     processor = st.session_state.image_processor
     image = processor.load_image(uploaded_file)
@@ -320,7 +320,7 @@ if uploaded_file is not None:
         session = st.session_state.session_results
         ma_crossovers = st.session_state.ma_crossovers
 
-        # ── Confluence Master Score (TOP) ──
+        # Confluence Master Score (TOP) 
         master = confluence.get("master", {})
         grade = master.get("grade", "D")
         grade_css = {"A+": "grade-a", "A": "grade-a", "B": "grade-b", "C": "grade-c", "D": "grade-d"}
@@ -382,7 +382,7 @@ if uploaded_file is not None:
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # ── Images ──
+        # Images
         col_left, col_right = st.columns([1, 1])
         with col_left:
             st.markdown("### 📷 Original Chart")
@@ -392,7 +392,7 @@ if uploaded_file is not None:
                 st.markdown("### 🎯 Annotated Analysis")
                 st.image(st.session_state.annotated_image, use_container_width=True)
 
-        # ── Trade Execution Plan (if actionable) ──
+        # Trade Execution Plan (if actionable) 
         trade_plan = confluence.get("trade_plan", {})
         if trade_plan.get("action") != "DO NOT TRADE":
             st.markdown("---")
@@ -429,7 +429,7 @@ if uploaded_file is not None:
                     st.markdown(f"**TP:** {scenario.get('tp', 'N/A'):.2f}")
                     st.markdown(f"**R:R:** 1:{scenario.get('risk_reward', 0):.2f}")
 
-        # ── Detailed Tabs ──
+        # Detailed Tabs
         st.markdown("---")
         st.markdown("## 📊 Detailed Analysis")
 
@@ -441,7 +441,7 @@ if uploaded_file is not None:
             "🗄️ Real Backtest DB", "📐 Real Kelly"
         ])
 
-        # ── TAB: Geometric Patterns ──
+        # TAB: Geometric Patterns 
         with tabs[0]:
             st.markdown("### Geometric Chart Patterns")
             filtered = [p for p in patterns if p.get("confidence", 0) >= confidence_threshold]
@@ -463,7 +463,7 @@ if uploaded_file is not None:
             else:
                 st.info("No geometric patterns detected above threshold.")
 
-        # ── TAB: Candlestick Patterns ──
+        # TAB: Candlestick Patterns 
         with tabs[1]:
             st.markdown("### Candlestick Patterns")
             if candlesticks:
@@ -490,7 +490,7 @@ if uploaded_file is not None:
             else:
                 st.info("No candlestick patterns detected.")
 
-        # ── TAB: Structure ──
+        # TAB: Structure 
         with tabs[2]:
             st.markdown("### Market Structure")
             trend_dir = structure.get("trend_direction", "N/A")
@@ -523,7 +523,7 @@ if uploaded_file is not None:
                     fig.update_layout(title="Price Structure", height=350, template="plotly_dark")
                     st.plotly_chart(fig, use_container_width=True)
 
-        # ── TAB: S/R & Fibonacci ──
+        # TAB: S/R & Fibonacci 
         with tabs[3]:
             st.markdown("### Support/Resistance & Fibonacci Levels")
             col_fib1, col_fib2 = st.columns([1, 1])
@@ -574,7 +574,7 @@ if uploaded_file is not None:
                     for tz in trade_zones:
                         st.markdown(f"- **{tz['zone_name']}** @ {tz['price']:.2f} — {tz['action']} ({tz['importance']})")
 
-        # ── TAB: Divergences ──
+        # TAB: Divergences 
         with tabs[4]:
             st.markdown("### Divergence Analysis")
             if divergences:
@@ -602,7 +602,7 @@ if uploaded_file is not None:
                     fig_mom.update_layout(title="Price vs Momentum (Divergence Check)", height=250, template="plotly_dark")
                     st.plotly_chart(fig_mom, use_container_width=True)
 
-        # ── TAB: Liquidity ──
+        # TAB: Liquidity 
         with tabs[5]:
             st.markdown("### 💧 Liquidity Zone Analysis")
             liq_summary = liquidity.get("summary", {})
@@ -658,7 +658,7 @@ if uploaded_file is not None:
                     for eq in equal_levels:
                         st.markdown(f"**{eq['type'].replace('_',' ').title()}:** {eq['level']:.1f} — {eq['description']}")
 
-        # ── TAB: SL/TP & Risk ──
+        # TAB: SL/TP & Risk 
         with tabs[6]:
             st.markdown("### 🎯 SL/TP & Risk Management")
 
@@ -737,7 +737,7 @@ if uploaded_file is not None:
             for rule in risk.get("risk_rules", []):
                 st.markdown(f"- {rule}")
 
-        # ── TAB: Regime & Session ──
+        # TAB: Regime & Session 
         with tabs[7]:
             st.markdown("### 🌐 Market Regime & Session Context")
 
@@ -795,7 +795,7 @@ if uploaded_file is not None:
                 if best_session:
                     st.info(f"🏆 **Best session for {pair}:** {best_session.get('best', 'N/A')}")
 
-        # ── TAB: Confluence Score ──
+        # TAB: Confluence Score 
         with tabs[8]:
             st.markdown("### 🎯 Confluence Score Engine")
 
@@ -869,7 +869,7 @@ if uploaded_file is not None:
                     icon = "🟢" if cross.get("signal") == "BULLISH" else "🔴"
                     st.markdown(f"{icon} **{cross['name']}** — {cross['description']}")
 
-        # ── TAB: Statistical Validation ──
+        # TAB: Statistical Validation 
         with tabs[9]:
             st.markdown("### 🔬 Statistical Validation — Is Your >85% Confidence Real?")
             st.warning(
@@ -1006,7 +1006,7 @@ if uploaded_file is not None:
                             st.markdown(f"**Can Claim 85% (5-bar):** {'✅' if mk.get('can_claim_85_five_bar') else '❌'}")
                             st.info(mk.get('interpretation', ''))
 
-        # ── TAB: ML Engine ──
+        # TAB: ML Engine 
         with tabs[10]:
             st.markdown("### 🤖 Machine Learning Engine")
             st.caption("Ensemble ML | Isolation Forest | Walk-Forward Validation | Probability Calibration | Meta-Learner")
@@ -1147,7 +1147,7 @@ if uploaded_file is not None:
                             for name, value in sorted_feats[:15]:
                                 st.markdown(f"- **{name}**: {value:.4f}")
 
-        # ── TAB: Real Backtest DB ──
+        # TAB: Real Backtest DB 
         with tabs[11]:
             st.markdown("### 🗄️ Real Backtest Database — MEASURED vs CLAIMED")
             db = st.session_state.trade_database
@@ -1253,7 +1253,7 @@ if uploaded_file is not None:
                         db.update_pattern_stats(t_pattern)
                     st.success(f"Trade #{trade_id} saved! Database now has {db.get_database_stats()['total_trades']} trades.")
 
-        # ── TAB: Real Kelly ──
+        # TAB: Real Kelly 
         with tabs[12]:
             st.markdown("### 📐 Real Kelly Criterion (from MEASURED data)")
             st.caption("The ONLY mathematically optimal position sizing method. Based on actual win rates, not estimates.")
@@ -1317,7 +1317,7 @@ if uploaded_file is not None:
                     st.markdown(f"| **Half Kelly** | **{kr['half_kelly']:.2%}** | **{kr['recommended_lots']:.2f}** | **Recommended** |")
                     st.markdown(f"| Quarter Kelly | {kr['quarter_kelly']:.2%} | {st.session_state.real_kelly._calc_lots(account_balance, kr['quarter_kelly']/100 if kr['quarter_kelly']>0 else 0, sl_pips_input, kelly_pair):.2f} | Conservative |")
 
-        # ── Export ──
+        # Export
         st.markdown("---")
         col_exp1, col_exp2, col_exp3 = st.columns(3)
 
@@ -1360,7 +1360,7 @@ Session: {session.get('inferred_session','N/A')}
             st.download_button("📋 Download Summary (TXT)", data=summary_text, file_name="forex_summary.txt", mime="text/plain", use_container_width=True)
 
 else:
-    # ── Landing Page ──
+    # Landing Page 
     st.markdown("""
     <div style="text-align:center;padding:2rem 1rem;">
         <h2 style="color:#3a7bd5;">Upload a Forex Chart to Begin Analysis</h2>

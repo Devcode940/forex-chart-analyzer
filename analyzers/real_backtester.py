@@ -30,7 +30,7 @@ class RealBacktester:
         Returns what ACTUALLY happened when similar setups occurred.
         """
 
-        # ── 1. Backtest each detected pattern ──
+        # 1. Backtest each detected pattern
         pattern_backtests = []
         for p in pattern_results:
             stats = self.db.get_pattern_stats(p.get("name", ""))
@@ -47,28 +47,28 @@ class RealBacktester:
                     "verdict": self._pattern_verdict(p.get("confidence", 0), stats["win_rate"], stats["total_occurrences"]),
                 })
 
-        # ── 2. Backtest confluence grade ──
+        # 2. Backtest confluence grade
         grade_stats = self.db.get_win_rate_by_grade()
         grade_backtest = grade_stats.get(confluence_grade, {})
 
-        # ── 3. Backtest pattern combos ──
+        # 3. Backtest pattern combos
         combo_names = [p["name"] for p in pattern_results[:3]]
         combo_backtest = self.db.get_combo_stats(combo_names) if len(combo_names) >= 2 else None
 
-        # ── 4. Backtest by regime + session ──
+        # 4. Backtest by regime + session
         regime_session_stats = self.db.get_win_rate_by_regime_session()
         rs_key = f"{regime}_{session}"
         rs_backtest = regime_session_stats.get(rs_key, {})
 
-        # ── 5. Get Kelly params for this setup type ──
+        # 5. Get Kelly params for this setup type
         setup_type = self._classify_setup(pattern_results, confluence_grade)
         kelly_params = self.db.get_kelly_params(setup_type)
 
-        # ── 6. Get calibration for heuristic score ──
+        # 6. Get calibration for heuristic score
         avg_heuristic = np.mean([p.get("confidence", 0.5) for p in pattern_results]) if pattern_results else 0.5
         calibration = self.db.get_calibration(avg_heuristic)
 
-        # ── 7. Overall backtest verdict ──
+        # 7. Overall backtest verdict
         overall = self._overall_verdict(pattern_backtests, grade_backtest, kelly_params, calibration)
 
         return {

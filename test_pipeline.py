@@ -50,8 +50,8 @@ def main():
     passed = 0
     total = 0
 
-    # ── Imports ──
-    print("\n── Imports ──")
+    # -- Imports --
+    print("\n-- Imports --")
     try:
         from analyzers.image_processor import ImageProcessor
         from analyzers.pattern_detector import PatternDetector
@@ -84,8 +84,8 @@ def main():
         print(f"  ❌ Import failed: {e}")
         sys.exit(1)
 
-    # ── Core Pipeline ──
-    print("\n── Core Pipeline ──")
+    # -- Core Pipeline --
+    print("\n-- Core Pipeline --")
     processor = ImageProcessor()
     preprocessed = processor.preprocess(img)
     color_info = processor.extract_chart_colors(img)
@@ -130,8 +130,8 @@ def main():
         validate_keys("SLTP.best_scenario", sltp.get("best_scenario") or {}, ["direction"]) if sltp.get("best_scenario") else (print("  ⚠️ SLTP.best_scenario: None (expected for weak signals)"), True)[1],
     ])
 
-    # ── ML Pipeline ──
-    print("\n── ML Pipeline ──")
+    # -- ML Pipeline --
+    print("\n-- ML Pipeline --")
     fe = FeatureEngineer()
     feat_result = fe.extract_features(ps)
     fv = feat_result["feature_vector"]
@@ -154,8 +154,8 @@ def main():
         validate_keys("MetaLearner", meta_result, ["master_probability", "master_direction", "master_grade", "model_agreement", "individual_models"]),
     ])
 
-    # ── Database Pipeline ──
-    print("\n── Database Pipeline ──")
+    # -- Database Pipeline --
+    print("\n-- Database Pipeline --")
     db = TradeDatabase()
     db_stats = db.get_database_stats()
     confluence_grade = confluence.get("master", {}).get("grade", "D")
@@ -174,7 +174,7 @@ def main():
         validate_keys("RealCalibrator", rc_result, ["raw_heuristic", "calibrated_probability", "adjustment", "is_overconfident", "honest_assessment"]),
     ])
 
-    # ── Summary ──
+    # -- Summary --
     print("\n" + "=" * 60)
     print(f"RESULT: {passed}/{total} validations passed")
     if passed == total:

@@ -261,11 +261,12 @@ class MLEnsemble:
 
         try:
             rf_cv = cross_val_score(
-                RandomForestClassifier(n_estimators=100, max_depth=6, random_state=42),
+                RandomForestClassifier(n_estimators=200, max_depth=8, min_samples_leaf=5, random_state=42),
                 X_scaled, y, cv=5, scoring='accuracy'
             )
             gb_cv = cross_val_score(
-                GradientBoostingClassifier(n_estimators=100, max_depth=4, random_state=42),
+                GradientBoostingClassifier(n_estimators=150, max_depth=5, learning_rate=0.1,
+                                           min_samples_leaf=5, random_state=42),
                 X_scaled, y, cv=5, scoring='accuracy'
             )
 
@@ -303,9 +304,7 @@ class MLEnsemble:
         ]
 
     def _feature_name(self, idx: int) -> str:
-        names = FeatureEngineer.FEATURE_NAMES if idx < len(FeatureEngineer.FEATURE_NAMES) else [f"feature_{i}" for i in range(50)]
+        from analyzers.ml_feature_engineer import FeatureEngineer
+        names = FeatureEngineer.FEATURE_NAMES
         return names[idx] if idx < len(names) else f"feature_{idx}"
-
-# Lazy import for feature names
-from analyzers.ml_feature_engineer import FeatureEngineer
 

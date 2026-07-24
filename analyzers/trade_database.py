@@ -158,7 +158,7 @@ class TradeDatabase:
         if cursor.fetchone()[0] > 0:
             return  # Already seeded
 
-        # ── Seed Patterns with realistic historical win rates ──
+        # Seed Patterns with realistic historical win rates
         # These win rates are based on published studies and common backtest results
         pattern_data = [
             # name, category, signal, occurrences, wins, avg_win_pips, avg_loss_pips
@@ -204,7 +204,7 @@ class TradeDatabase:
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (name, cat, sig, total, wins, losses, win_rate, avg_w, avg_l, pf))
 
-        # ── Seed individual trades (1000+ realistic records) ──
+        # Seed individual trades (1000+ realistic records)
         np.random.seed(42)
         pairs = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "XAUUSD"]
         timeframes = ["M15", "H1", "H4", "D1"]
@@ -278,7 +278,7 @@ class TradeDatabase:
             """, ('backtest', pair, tf, direction, entry, sl, tp, entry_date, exit_date,
                   outcome, pips, rr, pname, heuristic_conf, grade, regime, session))
 
-        # ── Seed Pattern Combos ──
+        # Seed Pattern Combos
         combos = [
             ("Head & Shoulders + Bearish Engulfing", 89, 61, 78, 42, 1.96),
             ("Double Bottom + Fibonacci Golden Zone", 124, 82, 85, 38, 2.45),
@@ -302,7 +302,7 @@ class TradeDatabase:
             """, (combo_hash, names, total, wins, total - wins,
                   wins / total, avg_w, avg_l, pf))
 
-        # ── Seed Calibration Map ──
+        # Seed Calibration Map
         buckets = [
             ("40-45%", 0.40, 0.45, 234, 89),
             ("45-50%", 0.45, 0.50, 312, 141),
@@ -325,7 +325,7 @@ class TradeDatabase:
                 VALUES (?, ?, ?, ?, ?, ?)
             """, (bucket, rmin, rmax, total, wins, wins / total))
 
-        # ── Seed Kelly Params ──
+        # Seed Kelly Params
         kelly_data = [
             ("reversal_pattern", 456, 0.582, 78, 45, 1.73, 0.159, 0.080),
             ("continuation_pattern", 534, 0.614, 62, 38, 1.63, 0.187, 0.094),
@@ -349,7 +349,7 @@ class TradeDatabase:
 
         self.conn.commit()
 
-    # ── Query Methods ──
+    # Query Methods
 
     def get_pattern_stats(self, pattern_name: str) -> Optional[dict]:
         """Get measured statistics for a specific pattern."""
@@ -409,7 +409,8 @@ class TradeDatabase:
         if outcome:
             query += " AND outcome = ?"
             params.append(outcome)
-        query += f" ORDER BY created_at DESC LIMIT {limit}"
+        query += " ORDER BY created_at DESC LIMIT ?"
+        params.append(limit)
         cursor.execute(query, params)
         return [dict(r) for r in cursor.fetchall()]
 

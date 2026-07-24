@@ -534,7 +534,7 @@ class StatisticalValidator:
                 f"🔴 UNCERTAIN: Only {dominant_prob:.0%} directional probability. "
                 f"Market state transitions are too random for high-confidence predictions."
             )
-    # METHOD 5: COMPREHENSIVE PROBABILITY AUDIT
+    # Full probability audit
     def full_probability_audit(
         self,
         price_series: dict,

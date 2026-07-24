@@ -8,7 +8,6 @@ Price often sweeps that zone before reversing.
 """
 
 import numpy as np
-from scipy.signal import argrelextrema
 
 class LiquidityDetector:
     """

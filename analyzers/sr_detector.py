@@ -4,7 +4,7 @@ Identifies key support and resistance zones from price data.
 """
 
 import numpy as np
-from scipy.signal import argrelextrema
+from scipy.signal import find_peaks
 from scipy.ndimage import gaussian_filter1d
 from sklearn.cluster import DBSCAN
 
@@ -72,10 +72,11 @@ class SRDetector:
 
     def _swing_based_detection(self, smoothed: np.ndarray, x_positions: list) -> dict:
         """Detect S/R from swing highs and lows."""
-        order = max(3, len(smoothed) // 15)
+        distance = max(3, len(smoothed) // 15)
+        prominence = np.ptp(smoothed) * 0.04 if len(smoothed) > 0 else 0.01
 
-        maxima_idx = argrelextrema(smoothed, np.greater, order=order)[0]
-        minima_idx = argrelextrema(smoothed, np.less, order=order)[0]
+        maxima_idx, _ = find_peaks(smoothed, distance=distance, prominence=prominence)
+        minima_idx, _ = find_peaks(-smoothed, distance=distance, prominence=prominence)
 
         supports = [{"level": float(smoothed[i]), "strength": 0.6, "touches": 1} for i in minima_idx]
         resistances = [{"level": float(smoothed[i]), "strength": 0.6, "touches": 1} for i in maxima_idx]

@@ -39,7 +39,7 @@ class RealKellyCalculator:
         win_loss_ratio = kelly_data["win_loss_ratio"]
         sample_size = kelly_data["total_trades"]
 
-        # ── Full Kelly ──
+        # Full Kelly
         # f* = (p*b - q) / b  where p=win_rate, q=1-p, b=win_loss_ratio
         p = measured_wr
         q = 1 - p
@@ -47,13 +47,13 @@ class RealKellyCalculator:
 
         full_kelly = (p * b - q) / b if b > 0 else 0
 
-        # ── Half Kelly (recommended) ──
+        # Half Kelly (recommended)
         half_kelly = full_kelly / 2
 
-        # ── Quarter Kelly (conservative) ──
+        # Quarter Kelly (conservative)
         quarter_kelly = full_kelly / 4
 
-        # ── Confidence adjustment based on sample size ──
+        # Confidence adjustment based on sample size
         # Small samples → reduce Kelly further
         if sample_size < 50:
             confidence_factor = sample_size / 100
@@ -64,7 +64,7 @@ class RealKellyCalculator:
 
         adjusted_half_kelly = half_kelly * confidence_factor
 
-        # ── Cap at maximum risk ──
+        # Cap at maximum risk
         max_risk = 0.02  # Never risk more than 2%
         final_risk_pct = min(adjusted_half_kelly, max_risk)
 
@@ -72,16 +72,16 @@ class RealKellyCalculator:
         if full_kelly <= 0:
             final_risk_pct = 0
 
-        # ── Calculate lot size ──
+        # Calculate lot size
         lots = self._calc_lots(account_balance, final_risk_pct, sl_pips, pair)
 
-        # ── Expected value per trade ──
+        # Expected value per trade
         expected_value = p * measured_avg_win - q * measured_avg_loss
 
-        # ── Risk of ruin with this sizing ──
+        # Risk of ruin with this sizing
         ror = self._risk_of_ruin(p, final_risk_pct, b)
 
-        # ── Time to double account ──
+        # Time to double account
         if expected_value > 0 and final_risk_pct > 0:
             trades_to_double = int(np.log(2) / np.log(1 + expected_value * final_risk_pct / measured_avg_loss))
         else:

@@ -18,8 +18,8 @@ class PatternDetector:
                    structure_context: dict = None) -> list:
         """Run all pattern detection algorithms with optional structure context.
 
-                'trend_direction' for trend-alignment confidence scoring.
-
+        structure_context should contain 'trend_direction' for trend-alignment
+        confidence scoring.
         """
         self.detected_patterns = []
 
@@ -51,7 +51,7 @@ class PatternDetector:
         self.detected_patterns.sort(key=lambda p: p.get("confidence", 0), reverse=True)
         return self.detected_patterns
 
-    # ── Swing detection ──────────────────────────────────────────────
+    # Swing detection
 
     def _get_swing_points(self, smoothed: np.ndarray) -> dict:
         """Improved swing detection with Gaussian smoothing and prominence."""
@@ -67,15 +67,15 @@ class PatternDetector:
             "lows": [{"idx": int(i), "val": float(smoothed[i])} for i in lows_idx]
         }
 
-    # ── Confidence calculator ────────────────────────────────────────
+    # Confidence calculator
 
     def _calculate_confidence(self, base: float, symmetry: float = 1.0,
                               trend_align: float = 1.0, quality: float = 1.0) -> float:
         """Compounded confidence from multiple independent factors.
 
-                pattern matches expected trend context.
-            quality: Data quality / noise score (0.7–1.0).
-
+        trend_align: multiplier based on how well the pattern matches
+            expected trend context. quality: Data quality / noise score
+            (0.7–1.0).
         """
         conf = base * symmetry * trend_align * quality
         return max(0.1, min(0.95, conf))
@@ -121,7 +121,7 @@ class PatternDetector:
         snr = signal / (noise + 1e-9)
         return max(0.7, min(1.0, 0.5 + snr * 0.1))
 
-    # ── Pattern: Head & Shoulders ────────────────────────────────────
+    # Pattern: Head and Shoulders
 
     def _detect_head_and_shoulders(self, swings: dict, x_pos: list,
                                    smoothed: np.ndarray, trend_dir: str):
@@ -189,7 +189,7 @@ class PatternDetector:
                 "target_direction": "DOWN"
             })
 
-    # ── Pattern: Inverse Head & Shoulders ────────────────────────────
+    # Pattern: Inverse Head and Shoulders
 
     def _detect_inverse_head_and_shoulders(self, swings: dict, x_pos: list,
                                            smoothed: np.ndarray, trend_dir: str):
@@ -255,7 +255,7 @@ class PatternDetector:
                 "target_direction": "UP"
             })
 
-    # ── Pattern: Double Top ──────────────────────────────────────────
+    # Pattern: Double Top
 
     def _detect_double_top(self, swings: dict, x_pos: list,
                            smoothed: np.ndarray, trend_dir: str):
@@ -301,7 +301,7 @@ class PatternDetector:
                     "target_direction": "DOWN"
                 })
 
-    # ── Pattern: Double Bottom ───────────────────────────────────────
+    # Pattern: Double Bottom
 
     def _detect_double_bottom(self, swings: dict, x_pos: list,
                               smoothed: np.ndarray, trend_dir: str):
@@ -347,7 +347,7 @@ class PatternDetector:
                     "target_direction": "UP"
                 })
 
-    # ── Pattern: Ascending Triangle ──────────────────────────────────
+    # Pattern: Ascending Triangle
 
     def _detect_ascending_triangle(self, swings: dict, x_pos: list,
                                    smoothed: np.ndarray):
@@ -389,7 +389,7 @@ class PatternDetector:
                             "target_direction": "UP"
                         })
 
-    # ── Pattern: Descending Triangle ─────────────────────────────────
+    # Pattern: Descending Triangle
 
     def _detect_descending_triangle(self, swings: dict, x_pos: list,
                                     smoothed: np.ndarray):
@@ -431,7 +431,7 @@ class PatternDetector:
                             "target_direction": "DOWN"
                         })
 
-    # ── Pattern: Symmetric Triangle ──────────────────────────────────
+    # Pattern: Symmetric Triangle
 
     def _detect_symmetric_triangle(self, swings: dict, x_pos: list,
                                    smoothed: np.ndarray):
@@ -469,7 +469,7 @@ class PatternDetector:
                     "target_direction": "PENDING"
                 })
 
-    # ── Pattern: Rising Wedge ────────────────────────────────────────
+    # Pattern: Rising Wedge
 
     def _detect_rising_wedge(self, swings: dict, x_pos: list,
                              smoothed: np.ndarray):
@@ -507,7 +507,7 @@ class PatternDetector:
                     "target_direction": "DOWN"
                 })
 
-    # ── Pattern: Falling Wedge ───────────────────────────────────────
+    # Pattern: Falling Wedge
 
     def _detect_falling_wedge(self, swings: dict, x_pos: list,
                               smoothed: np.ndarray):
@@ -545,7 +545,7 @@ class PatternDetector:
                     "target_direction": "UP"
                 })
 
-    # ── Pattern: Bull Flag ───────────────────────────────────────────
+    # Pattern: Bull Flag
 
     def _detect_bull_flag(self, swings: dict, x_pos: list,
                           smoothed: np.ndarray):
@@ -592,7 +592,7 @@ class PatternDetector:
                 "target_direction": "UP"
             })
 
-    # ── Pattern: Bear Flag ───────────────────────────────────────────
+    # Pattern: Bear Flag
 
     def _detect_bear_flag(self, swings: dict, x_pos: list,
                           smoothed: np.ndarray):
@@ -639,7 +639,7 @@ class PatternDetector:
                 "target_direction": "DOWN"
             })
 
-    # ── Pattern: Channel ─────────────────────────────────────────────
+    # Pattern: Channel
 
     def _detect_channel(self, swings: dict, x_pos: list,
                         smoothed: np.ndarray):
@@ -695,7 +695,7 @@ class PatternDetector:
                     "target_direction": "UP" if avg_slope > 0 else "DOWN"
                 })
 
-    # ── Pattern: Breakout ────────────────────────────────────────────
+    # Pattern: Breakout
 
     def _detect_breakout(self, smoothed: np.ndarray, x_pos: list):
         """Detect potential breakout zones where price approaches key levels."""
@@ -742,7 +742,7 @@ class PatternDetector:
                 "target_direction": "DOWN"
             })
 
-    # ── Pattern: Cup and Handle ──────────────────────────────────────
+    # Pattern: Cup and Handle
 
     def _detect_cup_and_handle(self, swings: dict, x_pos: list,
                                smoothed: np.ndarray):

@@ -58,7 +58,7 @@ class ImageProcessor:
         """
         hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
 
-        # ── Adaptive KMeans clustering ──
+        # Adaptive KMeans clustering
         h, w = hsv.shape[:2]
         # Subsample for speed (every 4th pixel)
         sample_rate = 4
@@ -96,7 +96,7 @@ class ImageProcessor:
                                    np.array([upper_h, min(255, s_val + 40), min(255, v_val + 40)]))
                 red_cluster_pixels += cv2.countNonZero(mask)
 
-        # ── Fixed HSV ranges (widened) ──
+        # Fixed HSV ranges (widened)
         green_mask = cv2.inRange(hsv, np.array([35, 30, 30]), np.array([90, 255, 255]))
         red_mask1 = cv2.inRange(hsv, np.array([0, 30, 30]), np.array([12, 255, 255]))
         red_mask2 = cv2.inRange(hsv, np.array([168, 30, 30]), np.array([180, 255, 255]))

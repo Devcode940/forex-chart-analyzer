@@ -111,39 +111,53 @@ class ConfluenceEngine:
         supports = sr.get("support", [])
         resistances = sr.get("resistance", [])
 
+        # Only add S/R signals if price is near the level
         for s in supports[:2]:
-            # Near support = bullish signal
-            self._add_signal(
-                "Support Zone", f"Support at {s.get('price_level', 0):.1f}", "BULLISH",
-                s.get("strength", 0.5) * 0.8, weight=1.2
-            )
+            level = s.get("price_level", 0)
+            proximity = abs(level - current) / (current + 1e-6) if current > 0 else 1.0
+            if proximity < 0.08:
+                self._add_signal(
+                    "Support Zone", f"Support at {level:.1f}", "BULLISH",
+                    s.get("strength", 0.5) * 0.8, weight=1.2
+                )
 
         for r in resistances[:2]:
-            # Near resistance = bearish signal
-            self._add_signal(
-                "Resistance Zone", f"Resistance at {r.get('price_level', 0):.1f}", "BEARISH",
-                r.get("strength", 0.5) * 0.8, weight=1.2
-            )
+            level = r.get("price_level", 0)
+            proximity = abs(level - current) / (current + 1e-6) if current > 0 else 1.0
+            if proximity < 0.08:
+                self._add_signal(
+                    "Resistance Zone", f"Resistance at {level:.1f}", "BEARISH",
+                    r.get("strength", 0.5) * 0.8, weight=1.2
+                )
 
     def _collect_fib_signals(self, fib: dict, sltp: dict):
         """Collect signals from Fibonacci levels."""
         golden_zone = fib.get("golden_zone", {})
+        current = sltp.get("current_price", 0)
         if golden_zone:
             trend = fib.get("trend", "RANGING")
             direction = "BULLISH" if trend in ["UPTREND", "RANGING"] else "BEARISH"
-            self._add_signal(
-                "Fibonacci", "Golden Zone (61.8%-78.6%)", direction,
-                0.75, weight=1.8  # Fib golden zone is very high weight
-            )
+            # Check if price is actually within the golden zone
+            upper = golden_zone.get("upper", 0)
+            lower = golden_zone.get("lower", 0)
+            in_zone = lower <= current <= upper if current > 0 and upper > lower else True
+            if in_zone:
+                self._add_signal(
+                    "Fibonacci", "Golden Zone (61.8%-78.6%)", direction,
+                    0.75, weight=1.8
+                )
 
         # Check individual key Fib levels
         for ratio, level in fib.get("retracements", {}).items():
             if ratio in [0.618, 0.786] and level.get("importance") == "HIGH":
-                direction = "BULLISH" if level.get("direction") == "BUY_ZONE" else "BEARISH"
-                self._add_signal(
-                    "Fibonacci", f"Fib {level['label']} Retracement", direction,
-                    0.6, weight=1.3
-                )
+                fib_value = level.get("value", 0)
+                proximity = abs(fib_value - current) / (current + 1e-6) if current > 0 else 1.0
+                if proximity < 0.05:
+                    direction = "BULLISH" if level.get("direction") == "BUY_ZONE" else "BEARISH"
+                    self._add_signal(
+                        "Fibonacci", f"Fib {level['label']} Retracement", direction,
+                        0.6, weight=1.3
+                    )
 
     def _collect_structure_signals(self, structure: dict):
         """Collect signals from market structure analysis."""

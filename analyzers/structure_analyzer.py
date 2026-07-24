@@ -3,9 +3,8 @@ Market Structure Analyzer Module
 Analyzes market structure: trend direction, swing highs/lows, market phases.
 """
 
-import cv2
 import numpy as np
-from scipy.signal import argrelextrema
+from scipy.signal import find_peaks
 from scipy.ndimage import gaussian_filter1d
 
 class StructureAnalyzer:
@@ -69,12 +68,11 @@ class StructureAnalyzer:
 
     def _detect_swings(self, smoothed: np.ndarray, x_positions: list, image_height: int):
         """Detect swing highs and swing lows in the price series."""
-        order = max(3, len(smoothed) // 20)
+        distance = max(3, len(smoothed) // 20)
+        prominence = np.ptp(smoothed) * 0.045 if len(smoothed) > 0 else 0.01
 
-        # Local maxima = swing highs (in inverted coords)
-        maxima_indices = argrelextrema(smoothed, np.greater, order=order)[0]
-        # Local minima = swing lows
-        minima_indices = argrelextrema(smoothed, np.less, order=order)[0]
+        maxima_indices, _ = find_peaks(smoothed, distance=distance, prominence=prominence)
+        minima_indices, _ = find_peaks(-smoothed, distance=distance, prominence=prominence)
 
         self.swing_highs = []
         for idx in maxima_indices:
@@ -82,7 +80,7 @@ class StructureAnalyzer:
                 self.swing_highs.append({
                     "index": int(idx),
                     "x": x_positions[idx],
-                    "price_y": int(image_height - smoothed[idx]),  # Convert back to image coords
+                    "price_y": int(image_height - smoothed[idx]),
                     "value": float(smoothed[idx])
                 })
 
