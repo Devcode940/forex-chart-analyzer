@@ -144,7 +144,7 @@ class IndicatorDetector:
         trend_lines = []
         if lines is not None:
             for line in lines:
-                x1, y1, x2, y2 = line[0]
+                x1, y1, x2, y2 = line.ravel()
                 length = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
                 angle = np.degrees(np.arctan2(y2 - y1, x2 - x1))
 
@@ -178,7 +178,7 @@ class IndicatorDetector:
         h_lines = []
         if lines is not None:
             for line in lines:
-                x1, y1, x2, y2 = line[0]
+                x1, y1, x2, y2 = line.ravel()
                 if abs(y2 - y1) < 3:  # Nearly horizontal
 
                     h, w = image.shape[:2]

@@ -57,7 +57,7 @@ class CalibrationEngine:
         calibrated = {}
         for score_name, raw_score in heuristic_scores.items():
             platt_cal = float(self.platt_model.predict_proba([[raw_score]])[0, 1])
-            iso_cal = float(self.isotonic_model.predict(np.array([raw_score])))
+            iso_cal = float(self.isotonic_model.predict(np.array([raw_score])).item())
 
             # Average of both methods
             avg_cal = (platt_cal + iso_cal) / 2
@@ -72,7 +72,7 @@ class CalibrationEngine:
             }
         main_raw = confluence_results.get("master", {}).get("confidence", 0)
         main_platt = float(self.platt_model.predict_proba([[main_raw]])[0, 1])
-        main_iso = float(self.isotonic_model.predict(np.array([main_raw])))
+        main_iso = float(self.isotonic_model.predict(np.array([main_raw])).item())
         main_calibrated = (main_platt + main_iso) / 2
 
         return {

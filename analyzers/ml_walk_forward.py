@@ -25,8 +25,17 @@ class WalkForwardValidator:
     Simulates how the strategy would have performed in real-time.
     """
 
+    # Class-level cache for static, deterministic operations
+    _cached_X = None
+    _cached_y = None
+    _cached_validation_runs = {}  # maps n_windows -> static validation metrics dict
+    _cached_model = None          # cached trained model for _predict_current
+
     def __init__(self):
         self.results = {}
+        # Instance-level cache for consecutive calls with identical feature vector
+        self._last_feature_hash = None
+        self._last_result = None
 
     def validate(self, feature_vector: np.ndarray,
                  pattern_results: list,
@@ -39,8 +48,31 @@ class WalkForwardValidator:
         if len(feature_vector) == 0:
             return {"error": "No features available"}
 
-        # Generate time-series data for walk-forward
-        X, y = self._generate_time_series_data(n_samples=3000)
+        # Check instance-level cache based on feature vector hash
+        feat_hash = hash(feature_vector.tobytes()) if feature_vector is not None else None
+        if feat_hash is not None and self._last_feature_hash == feat_hash and self._last_result is not None:
+            return self._last_result
+
+        # 1. Fetch or generate time-series data
+        if WalkForwardValidator._cached_X is None or WalkForwardValidator._cached_y is None:
+            X, y = self._generate_time_series_data(n_samples=3000)
+            WalkForwardValidator._cached_X = X
+            WalkForwardValidator._cached_y = y
+        else:
+            X = WalkForwardValidator._cached_X
+            y = WalkForwardValidator._cached_y
+
+        # 2. Check validation results cache
+        if n_windows in WalkForwardValidator._cached_validation_runs:
+            cached_res = WalkForwardValidator._cached_validation_runs[n_windows].copy()
+            # Predict on current features using the cached trained model
+            current_prediction = self._predict_current(feature_vector, X, y)
+            cached_res["current_prediction"] = current_prediction
+
+            # Cache results at the instance level
+            self._last_feature_hash = feat_hash
+            self._last_result = cached_res
+            return cached_res
 
         # Run walk-forward windows
         window_size = len(X) // (n_windows + 1)
@@ -119,10 +151,8 @@ class WalkForwardValidator:
             overall_prec = 0
             overall_f1 = 0
 
-        # Score current features through the last trained model
-        current_prediction = self._predict_current(feature_vector, X, y)
-
-        return {
+        # Cache the static validation results before predicting for the current feature vector
+        validation_results = {
             "overall_metrics": {
                 "accuracy": round(overall_acc, 3),
                 "precision": round(overall_prec, 3),
@@ -130,10 +160,21 @@ class WalkForwardValidator:
                 "total_out_of_sample_trades": len(all_predictions),
             },
             "window_results": window_results,
-            "current_prediction": current_prediction,
             "interpretation": self._interpret_wf(overall_acc, overall_prec, window_results),
             "overfitting_check": self._check_overfitting(window_results),
         }
+        WalkForwardValidator._cached_validation_runs[n_windows] = validation_results
+
+        # Score current features through the last trained model
+        current_prediction = self._predict_current(feature_vector, X, y)
+
+        final_res = validation_results.copy()
+        final_res["current_prediction"] = current_prediction
+
+        # Cache results at the instance level
+        self._last_feature_hash = feat_hash
+        self._last_result = final_res
+        return final_res
 
     def _generate_time_series_data(self, n_samples: int = 3000):
         """Generate time-series data with regime changes for realistic WF testing."""
@@ -232,11 +273,15 @@ class WalkForwardValidator:
         scaler = StandardScaler()
         X_scaled = scaler.fit_transform(X)
 
-        model = GradientBoostingClassifier(
-            n_estimators=100, max_depth=4,
-            learning_rate=0.1, random_state=42
-        )
-        model.fit(X_scaled, y)
+        if WalkForwardValidator._cached_model is None:
+            model = GradientBoostingClassifier(
+                n_estimators=100, max_depth=4,
+                learning_rate=0.1, random_state=42
+            )
+            model.fit(X_scaled, y)
+            WalkForwardValidator._cached_model = model
+        else:
+            model = WalkForwardValidator._cached_model
 
         current_scaled = scaler.transform(feature_vector.reshape(1, -1))
         prob = model.predict_proba(current_scaled)[0, 1]

@@ -26,6 +26,10 @@ class MLEnsemble:
     Phase 4: Predict on live features
     """
 
+    # Class-level cache for deterministic synthetic training data
+    _cached_X = None
+    _cached_y = None
+
     def __init__(self):
         self.rf_model = None
         self.gb_model = None
@@ -33,6 +37,10 @@ class MLEnsemble:
         self.scaler = StandardScaler()
         self.is_trained = False
         self.training_stats = {}
+
+        # Instance-level cache for consecutive calls with identical feature vector
+        self._last_feature_hash = None
+        self._last_result = None
 
     def train_and_predict(self, feature_vector: np.ndarray,
                           pattern_results: list,
@@ -44,6 +52,12 @@ class MLEnsemble:
         """
         if len(feature_vector) == 0:
             return {"error": "No features extracted"}
+
+        # Check instance-level cache based on feature vector hash
+        feat_hash = hash(feature_vector.tobytes()) if feature_vector is not None else None
+        if feat_hash is not None and self._last_feature_hash == feat_hash and self._last_result is not None:
+            return self._last_result
+
         X_train, y_train = self._generate_synthetic_data(n_samples=2000)
         X_aug, y_aug = self._augment_with_heuristics(
             feature_vector, pattern_results, structure_results, regime_results, confluence_results
@@ -55,7 +69,7 @@ class MLEnsemble:
         cv_score = self._cross_validate(X_train, y_train)
         importance = self._feature_importance()
 
-        return {
+        res = {
             "ml_probability": prediction["probability"],
             "ml_direction": prediction["direction"],
             "ml_confidence": prediction["confidence"],
@@ -67,6 +81,11 @@ class MLEnsemble:
             "training_samples": len(y_train),
             "is_trained": self.is_trained,
         }
+
+        # Cache results at the instance level
+        self._last_feature_hash = feat_hash
+        self._last_result = res
+        return res
 
     def _generate_synthetic_data(self, n_samples: int = 2000):
         """
@@ -81,6 +100,9 @@ class MLEnsemble:
         - High volatility + low efficiency → likely loser both ways
         - High efficiency + bullish signals → long winner
         """
+        if n_samples == 2000 and MLEnsemble._cached_X is not None and MLEnsemble._cached_y is not None:
+            return MLEnsemble._cached_X, MLEnsemble._cached_y
+
         np.random.seed(42)
         n_features = 50  # Match FeatureEngineer output
 
@@ -166,6 +188,10 @@ class MLEnsemble:
             X[i, 47] = np.random.uniform(0.3, 0.7)  # hurst_exponent
             X[i, 48] = np.random.uniform(0.2, 0.8)  # mean_reversion_score
             X[i, 49] = np.random.uniform(-0.2, 0.2)  # serial_correlation
+
+        if n_samples == 2000:
+            MLEnsemble._cached_X = X
+            MLEnsemble._cached_y = y
 
         return X, y
 
@@ -262,11 +288,11 @@ class MLEnsemble:
         try:
             rf_cv = cross_val_score(
                 RandomForestClassifier(n_estimators=100, max_depth=6, random_state=42),
-                X_scaled, y, cv=5, scoring='accuracy'
+                X_scaled, y, cv=5, scoring='accuracy', n_jobs=-1
             )
             gb_cv = cross_val_score(
                 GradientBoostingClassifier(n_estimators=100, max_depth=4, random_state=42),
-                X_scaled, y, cv=5, scoring='accuracy'
+                X_scaled, y, cv=5, scoring='accuracy', n_jobs=-1
             )
 
             return {
