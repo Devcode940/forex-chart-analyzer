@@ -26,12 +26,28 @@ class TradeDatabase:
     """SQLite-backed trade database for real backtesting and calibration."""
 
     def __init__(self, db_path: str = None):
-        self.db_path = db_path or DB_PATH
-        os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
-        self.conn = sqlite3.connect(self.db_path)
-        self.conn.row_factory = sqlite3.Row
-        self._create_tables()
-        self._seed_if_empty()
+        if db_path:
+            self.db_path = db_path
+        else:
+            # Resolve relative to the actual module location
+            try:
+                module_dir = os.path.dirname(os.path.abspath(__file__))
+                self.db_path = os.path.join(module_dir, "..", "data", "trade_database.db")
+            except Exception:
+                self.db_path = os.path.join(os.getcwd(), "data", "trade_database.db")
+
+        try:
+            os.makedirs(os.path.dirname(os.path.abspath(self.db_path)), exist_ok=True)
+            self.conn = sqlite3.connect(self.db_path)
+            self.conn.row_factory = sqlite3.Row
+            self._create_tables()
+            self._seed_if_empty()
+        except Exception as e:
+            # Fallback: use in-memory DB if file DB fails
+            self.conn = sqlite3.connect(":memory:")
+            self.conn.row_factory = sqlite3.Row
+            self._create_tables()
+            self._seed_if_empty()
 
     def _create_tables(self):
         """Create all database tables."""

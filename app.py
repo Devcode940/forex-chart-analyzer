@@ -125,7 +125,10 @@ def init_state():
     }
     for k, v in keys.items():
         if k not in st.session_state:
-            st.session_state[k] = v
+            try:
+                st.session_state[k] = v
+            except Exception:
+                st.session_state[k] = None
 
 init_state()
 

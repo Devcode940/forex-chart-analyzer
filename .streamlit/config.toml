@@ -1,0 +1,20 @@
+[server]
+headless = true
+port = 8501
+fileWatcherType = "none"
+enableCORS = false
+enableXsrfProtection = false
+maxUploadSize = 10
+
+[browser]
+gatherUsageStats = false
+serverAddress = "localhost"
+serverPort = 8501
+
+[runner]
+magicEnabled = false
+fastReruns = true
+
+[client]
+showErrorDetails = true
+toolbarMode = "viewer"
