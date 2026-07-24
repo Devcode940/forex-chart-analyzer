@@ -11,7 +11,9 @@ We use HALF-KELLY for safety (full Kelly is too aggressive).
 """
 
 import numpy as np
+
 from analyzers.trade_database import TradeDatabase
+
 
 class RealKellyCalculator:
     """Calculate Kelly-optimal position sizing from MEASURED statistics."""
@@ -19,10 +21,15 @@ class RealKellyCalculator:
     def __init__(self, db: TradeDatabase = None):
         self.db = db or TradeDatabase()
 
-    def calculate(self, setup_type: str, account_balance: float,
-                  sl_pips: float, pair: str = "EURUSD") -> dict:
+    def calculate(
+        self,
+        setup_type: str,
+        account_balance: float,
+        sl_pips: float,
+        pair: str = "EURUSD",
+    ) -> dict:
         """
-        Calculate Kelly-optimal position size from MEASURED data.        """
+        Calculate Kelly-optimal position size from MEASURED data."""
         kelly_data = self.db.get_kelly_params(setup_type)
 
         if not kelly_data:
@@ -83,9 +90,12 @@ class RealKellyCalculator:
 
         # ── Time to double account ──
         if expected_value > 0 and final_risk_pct > 0:
-            trades_to_double = int(np.log(2) / np.log(1 + expected_value * final_risk_pct / measured_avg_loss))
+            trades_to_double = int(
+                np.log(2)
+                / np.log(1 + expected_value * final_risk_pct / measured_avg_loss)
+            )
         else:
-            trades_to_double = float('inf')
+            trades_to_double = float("inf")
 
         return {
             "setup_type": setup_type,
@@ -104,13 +114,19 @@ class RealKellyCalculator:
             "risk_amount_usd": round(account_balance * final_risk_pct, 2),
             "expected_value_pips": round(expected_value, 2),
             "risk_of_ruin": round(ror, 4),
-            "trades_to_double": trades_to_double if trades_to_double != float('inf') else "N/A",
+            "trades_to_double": (
+                trades_to_double if trades_to_double != float("inf") else "N/A"
+            ),
             "has_edge": full_kelly > 0,
-            "recommendation": self._recommendation(full_kelly, measured_wr, sample_size, final_risk_pct),
+            "recommendation": self._recommendation(
+                full_kelly, measured_wr, sample_size, final_risk_pct
+            ),
             "pip_value": self._pip_value(pair),
         }
 
-    def _calc_lots(self, balance: float, risk_pct: float, sl_pips: float, pair: str) -> float:
+    def _calc_lots(
+        self, balance: float, risk_pct: float, sl_pips: float, pair: str
+    ) -> float:
         """Calculate lot size from risk parameters."""
         pip_val = self._pip_value(pair)
         risk_amount = balance * risk_pct
@@ -127,10 +143,19 @@ class RealKellyCalculator:
         Adjust based on your broker's contract specifications.
         """
         values = {
-            "EURUSD": 10.0, "GBPUSD": 10.0, "AUDUSD": 10.0, "NZDUSD": 10.0,
-            "USDJPY": 6.5, "EURJPY": 6.5, "GBPJPY": 6.5,
-            "USDCHF": 10.5, "USDCAD": 7.5, "AUDJPY": 6.5,
-            "XAUUSD": 1.0, "US30": 1.0, "NAS100": 1.0,
+            "EURUSD": 10.0,
+            "GBPUSD": 10.0,
+            "AUDUSD": 10.0,
+            "NZDUSD": 10.0,
+            "USDJPY": 6.5,
+            "EURJPY": 6.5,
+            "GBPJPY": 6.5,
+            "USDCHF": 10.5,
+            "USDCAD": 7.5,
+            "AUDJPY": 6.5,
+            "XAUUSD": 1.0,
+            "US30": 1.0,
+            "NAS100": 1.0,
         }
         return values.get(pair, 10.0)
 
@@ -165,4 +190,3 @@ class RealKellyCalculator:
             return f"✅ GOOD EDGE: Full Kelly = {full_kelly:.1%}. Half-Kelly ({risk:.2%} risk) gives good growth with manageable drawdowns."
 
         return f"🟢 STRONG EDGE: Full Kelly = {full_kelly:.1%}. But DO NOT use full Kelly! Half-Kelly ({risk:.2%} risk) is the maximum recommended."
-

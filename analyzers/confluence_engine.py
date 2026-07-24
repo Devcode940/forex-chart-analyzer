@@ -9,6 +9,7 @@ it COMPOUNDS. This engine models that compounding effect.
 
 import numpy as np
 
+
 class ConfluenceEngine:
     """
     Calculates a master confluence score that compounds multiple signals.
@@ -25,10 +26,16 @@ class ConfluenceEngine:
         self.master_score = {}
         self.trade_plan = {}
 
-    def analyze(self, pattern_results: list, candlestick_results: list,
-                sr_results: dict, fib_results: dict,
-                structure_results: dict, regime_results: dict,
-                sltp_results: dict) -> dict:
+    def analyze(
+        self,
+        pattern_results: list,
+        candlestick_results: list,
+        sr_results: dict,
+        fib_results: dict,
+        structure_results: dict,
+        regime_results: dict,
+        sltp_results: dict,
+    ) -> dict:
         """
         Aggregate all signals into a compounded confluence score.
         Returns master direction, confidence, and a prioritized trade plan.
@@ -73,36 +80,58 @@ class ConfluenceEngine:
             "confluence_breakdown": self._get_confluence_breakdown(),
         }
 
-    def _add_signal(self, source: str, name: str, direction: str,
-                    strength: float, weight: float = 1.0):
+    def _add_signal(
+        self,
+        source: str,
+        name: str,
+        direction: str,
+        strength: float,
+        weight: float = 1.0,
+    ):
         """Add a signal to the collection."""
-        self.signals.append({
-            "source": source,
-            "name": name,
-            "direction": direction,  # BULLISH, BEARISH, NEUTRAL
-            "strength": min(strength, 1.0),
-            "weight": weight,
-            "weighted_impact": strength * weight,
-        })
+        self.signals.append(
+            {
+                "source": source,
+                "name": name,
+                "direction": direction,  # BULLISH, BEARISH, NEUTRAL
+                "strength": min(strength, 1.0),
+                "weight": weight,
+                "weighted_impact": strength * weight,
+            }
+        )
 
     def _collect_pattern_signals(self, patterns: list):
         """Collect signals from geometric chart patterns."""
         for p in patterns:
-            direction = "BULLISH" if "BULLISH" in p.get("type", "") else \
-                        "BEARISH" if "BEARISH" in p.get("type", "") else "NEUTRAL"
+            direction = (
+                "BULLISH"
+                if "BULLISH" in p.get("type", "")
+                else "BEARISH" if "BEARISH" in p.get("type", "") else "NEUTRAL"
+            )
             self._add_signal(
-                "Chart Pattern", p["name"], direction,
-                p.get("confidence", 0.5), weight=1.5  # Patterns are high-weight
+                "Chart Pattern",
+                p["name"],
+                direction,
+                p.get("confidence", 0.5),
+                weight=1.5,  # Patterns are high-weight
             )
 
     def _collect_candlestick_signals(self, candlesticks: list):
         """Collect signals from individual candlestick patterns."""
-        signal_map = {"BUY": "BULLISH", "SELL": "BEARISH", "REVERSAL_POSSIBLE": "NEUTRAL", "WAIT": "NEUTRAL"}
+        signal_map = {
+            "BUY": "BULLISH",
+            "SELL": "BEARISH",
+            "REVERSAL_POSSIBLE": "NEUTRAL",
+            "WAIT": "NEUTRAL",
+        }
         for c in candlesticks[:5]:  # Top 5 most recent/relevant
             direction = signal_map.get(c.get("signal", "WAIT"), "NEUTRAL")
             self._add_signal(
-                "Candlestick", c["name"], direction,
-                c.get("confidence", 0.5), weight=1.0
+                "Candlestick",
+                c["name"],
+                direction,
+                c.get("confidence", 0.5),
+                weight=1.0,
             )
 
     def _collect_sr_signals(self, sr: dict, sltp: dict):
@@ -114,15 +143,21 @@ class ConfluenceEngine:
         for s in supports[:2]:
             # Near support = bullish signal
             self._add_signal(
-                "Support Zone", f"Support at {s.get('price_level', 0):.1f}", "BULLISH",
-                s.get("strength", 0.5) * 0.8, weight=1.2
+                "Support Zone",
+                f"Support at {s.get('price_level', 0):.1f}",
+                "BULLISH",
+                s.get("strength", 0.5) * 0.8,
+                weight=1.2,
             )
 
         for r in resistances[:2]:
             # Near resistance = bearish signal
             self._add_signal(
-                "Resistance Zone", f"Resistance at {r.get('price_level', 0):.1f}", "BEARISH",
-                r.get("strength", 0.5) * 0.8, weight=1.2
+                "Resistance Zone",
+                f"Resistance at {r.get('price_level', 0):.1f}",
+                "BEARISH",
+                r.get("strength", 0.5) * 0.8,
+                weight=1.2,
             )
 
     def _collect_fib_signals(self, fib: dict, sltp: dict):
@@ -132,17 +167,25 @@ class ConfluenceEngine:
             trend = fib.get("trend", "RANGING")
             direction = "BULLISH" if trend in ["UPTREND", "RANGING"] else "BEARISH"
             self._add_signal(
-                "Fibonacci", "Golden Zone (61.8%-78.6%)", direction,
-                0.75, weight=1.8  # Fib golden zone is very high weight
+                "Fibonacci",
+                "Golden Zone (61.8%-78.6%)",
+                direction,
+                0.75,
+                weight=1.8,  # Fib golden zone is very high weight
             )
 
         # Check individual key Fib levels
         for ratio, level in fib.get("retracements", {}).items():
             if ratio in [0.618, 0.786] and level.get("importance") == "HIGH":
-                direction = "BULLISH" if level.get("direction") == "BUY_ZONE" else "BEARISH"
+                direction = (
+                    "BULLISH" if level.get("direction") == "BUY_ZONE" else "BEARISH"
+                )
                 self._add_signal(
-                    "Fibonacci", f"Fib {level['label']} Retracement", direction,
-                    0.6, weight=1.3
+                    "Fibonacci",
+                    f"Fib {level['label']} Retracement",
+                    direction,
+                    0.6,
+                    weight=1.3,
                 )
 
     def _collect_structure_signals(self, structure: dict):
@@ -151,19 +194,22 @@ class ConfluenceEngine:
         strength = structure.get("trend_strength", 0.5)
 
         if trend == "UPTREND":
-            self._add_signal("Market Structure", "Uptrend", "BULLISH", strength, weight=2.0)
+            self._add_signal(
+                "Market Structure", "Uptrend", "BULLISH", strength, weight=2.0
+            )
         elif trend == "DOWNTREND":
-            self._add_signal("Market Structure", "Downtrend", "BEARISH", strength, weight=2.0)
+            self._add_signal(
+                "Market Structure", "Downtrend", "BEARISH", strength, weight=2.0
+            )
         else:
-            self._add_signal("Market Structure", "Ranging/Consolidation", "NEUTRAL", 0.4, weight=1.0)
+            self._add_signal(
+                "Market Structure", "Ranging/Consolidation", "NEUTRAL", 0.4, weight=1.0
+            )
 
         # BOS signals
         for bos in structure.get("structure_breaks", []):
             direction = "BULLISH" if "BULLISH" in bos.get("type", "") else "BEARISH"
-            self._add_signal(
-                "Structure Break", bos["type"], direction,
-                0.7, weight=1.5
-            )
+            self._add_signal("Structure Break", bos["type"], direction, 0.7, weight=1.5)
 
     def _collect_regime_signals(self, regime: dict):
         """Collect signals from regime classification."""
@@ -173,13 +219,21 @@ class ConfluenceEngine:
 
         if regime_name == "TRENDING":
             if "UP" in sub_regime:
-                self._add_signal("Market Regime", "Trending Up", "BULLISH", confidence, weight=1.3)
+                self._add_signal(
+                    "Market Regime", "Trending Up", "BULLISH", confidence, weight=1.3
+                )
             elif "DOWN" in sub_regime:
-                self._add_signal("Market Regime", "Trending Down", "BEARISH", confidence, weight=1.3)
+                self._add_signal(
+                    "Market Regime", "Trending Down", "BEARISH", confidence, weight=1.3
+                )
         elif regime_name == "RANGING":
-            self._add_signal("Market Regime", "Ranging", "NEUTRAL", confidence, weight=0.8)
+            self._add_signal(
+                "Market Regime", "Ranging", "NEUTRAL", confidence, weight=0.8
+            )
         elif regime_name == "VOLATILE":
-            self._add_signal("Market Regime", "Volatile", "NEUTRAL", confidence * 0.5, weight=0.5)
+            self._add_signal(
+                "Market Regime", "Volatile", "NEUTRAL", confidence * 0.5, weight=0.5
+            )
 
     def _calculate_compounded_scores(self):
         """
@@ -208,17 +262,17 @@ class ConfluenceEngine:
         # Compound: P = 1 - product of (1 - p_i)
         self.bull_score = 1.0
         for f in bull_factors:
-            self.bull_score *= (1.0 - f)
+            self.bull_score *= 1.0 - f
         self.bull_score = 1.0 - self.bull_score
 
         self.bear_score = 1.0
         for f in bear_factors:
-            self.bear_score *= (1.0 - f)
+            self.bear_score *= 1.0 - f
         self.bear_score = 1.0 - self.bear_score
 
         self.neutral_score = 1.0
         for f in neutral_factors:
-            self.neutral_score *= (1.0 - f)
+            self.neutral_score *= 1.0 - f
         self.neutral_score = 1.0 - self.neutral_score
 
     def _determine_master_direction(self) -> dict:
@@ -230,7 +284,7 @@ class ConfluenceEngine:
                 "direction": "NO_SIGNAL",
                 "confidence": 0.0,
                 "grade": "F",
-                "strength_description": "No actionable signal detected"
+                "strength_description": "No actionable signal detected",
             }
 
         bull_pct = self.bull_score / total
@@ -283,16 +337,20 @@ class ConfluenceEngine:
             return {
                 "action": "DO NOT TRADE",
                 "reason": f"Confluence grade is {grade} — signals are conflicting. Wait for clarity.",
-                "alternative": "Set alerts at key S/R levels and wait for a clear breakout or reversal signal."
+                "alternative": "Set alerts at key S/R levels and wait for a clear breakout or reversal signal.",
             }
 
         best_scenario = None
         for scenario in sltp.get("scenarios", []):
             if direction == "BULLISH" and scenario.get("direction") == "BUY":
-                if best_scenario is None or scenario.get("risk_reward", 0) > best_scenario.get("risk_reward", 0):
+                if best_scenario is None or scenario.get(
+                    "risk_reward", 0
+                ) > best_scenario.get("risk_reward", 0):
                     best_scenario = scenario
             elif direction == "BEARISH" and scenario.get("direction") == "SELL":
-                if best_scenario is None or scenario.get("risk_reward", 0) > best_scenario.get("risk_reward", 0):
+                if best_scenario is None or scenario.get(
+                    "risk_reward", 0
+                ) > best_scenario.get("risk_reward", 0):
                     best_scenario = scenario
 
         entry_trigger = None
@@ -306,8 +364,14 @@ class ConfluenceEngine:
         confluence_factors = [f"✅ {s['source']}: {s['name']}" for s in aligned_signals]
 
         # Find opposing factors
-        opposing = [s for s in self.signals if s["direction"] != direction and s["direction"] != "NEUTRAL"]
-        risk_factors = [f"⚠️ {s['source']}: {s['name']} ({s['direction']})" for s in opposing]
+        opposing = [
+            s
+            for s in self.signals
+            if s["direction"] != direction and s["direction"] != "NEUTRAL"
+        ]
+        risk_factors = [
+            f"⚠️ {s['source']}: {s['name']} ({s['direction']})" for s in opposing
+        ]
 
         plan = {
             "action": f"{'BUY' if direction == 'BULLISH' else 'SELL'}",
@@ -318,7 +382,9 @@ class ConfluenceEngine:
             "confluence_factors": confluence_factors,
             "risk_factors": risk_factors,
             "position_advice": self._get_position_advice(grade),
-            "execution_steps": self._get_execution_steps(direction, grade, best_scenario),
+            "execution_steps": self._get_execution_steps(
+                direction, grade, best_scenario
+            ),
         }
 
         return plan
@@ -343,24 +409,30 @@ class ConfluenceEngine:
         ]
 
         if scenario:
-            steps.extend([
-                f"4️⃣ ENTRY: At {scenario.get('entry', 'N/A'):.2f} (or on trigger candle close)",
-                f"5️⃣ STOP LOSS: At {scenario.get('sl', 'N/A'):.2f}",
-                f"6️⃣ TAKE PROFIT: At {scenario.get('tp', 'N/A'):.2f}",
-                f"7️⃣ RISK:REWARD = 1:{scenario.get('risk_reward', 0):.2f}",
-            ])
+            steps.extend(
+                [
+                    f"4️⃣ ENTRY: At {scenario.get('entry', 'N/A'):.2f} (or on trigger candle close)",
+                    f"5️⃣ STOP LOSS: At {scenario.get('sl', 'N/A'):.2f}",
+                    f"6️⃣ TAKE PROFIT: At {scenario.get('tp', 'N/A'):.2f}",
+                    f"7️⃣ RISK:REWARD = 1:{scenario.get('risk_reward', 0):.2f}",
+                ]
+            )
         else:
-            steps.extend([
-                "4️⃣ ENTRY: At key Fib level or S/R bounce",
-                "5️⃣ STOP LOSS: Beyond the invalidation point",
-                "6️⃣ TAKE PROFIT: At next opposing S/R or Fib extension",
-            ])
+            steps.extend(
+                [
+                    "4️⃣ ENTRY: At key Fib level or S/R bounce",
+                    "5️⃣ STOP LOSS: Beyond the invalidation point",
+                    "6️⃣ TAKE PROFIT: At next opposing S/R or Fib extension",
+                ]
+            )
 
-        steps.extend([
-            "8️⃣ CONFIRM: Check for volume/momentum confirmation",
-            "9️⃣ MANAGE: Trail stop if trend continues, don't move SL against you",
-            "🔟 REVIEW: If stopped out, re-analyze — don't revenge trade"
-        ])
+        steps.extend(
+            [
+                "8️⃣ CONFIRM: Check for volume/momentum confirmation",
+                "9️⃣ MANAGE: Trail stop if trend continues, don't move SL against you",
+                "🔟 REVIEW: If stopped out, re-analyze — don't revenge trade",
+            ]
+        )
 
         return steps
 
@@ -370,10 +442,14 @@ class ConfluenceEngine:
         for signal in self.signals:
             source = signal["source"]
             if source not in categories:
-                categories[source] = {"bullish": 0, "bearish": 0, "neutral": 0, "signals": []}
+                categories[source] = {
+                    "bullish": 0,
+                    "bearish": 0,
+                    "neutral": 0,
+                    "signals": [],
+                }
             direction = signal["direction"].lower()
             categories[source][direction] = categories[source].get(direction, 0) + 1
             categories[source]["signals"].append(signal["name"])
 
         return categories
-

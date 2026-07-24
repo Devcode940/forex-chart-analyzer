@@ -12,15 +12,17 @@ Tables:
   - kelly_params: Measured win rate, avg_win, avg_loss per setup type
 """
 
-import sqlite3
 import json
 import os
+import sqlite3
 import time
-import numpy as np
 from datetime import datetime, timedelta
-from typing import List, Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
+
+import numpy as np
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "trade_database.db")
+
 
 class TradeDatabase:
     """SQLite-backed trade database for real backtesting and calibration."""
@@ -198,11 +200,14 @@ class TradeDatabase:
             losses = total - wins
             win_rate = wins / total
             pf = (wins * avg_w) / (losses * avg_l) if losses > 0 else 0
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO patterns (name, category, signal, total_occurrences, wins, losses,
                                       win_rate, avg_win_pips, avg_loss_pips, profit_factor)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (name, cat, sig, total, wins, losses, win_rate, avg_w, avg_l, pf))
+            """,
+                (name, cat, sig, total, wins, losses, win_rate, avg_w, avg_l, pf),
+            )
 
         # ── Seed individual trades (1000+ realistic records) ──
         np.random.seed(42)
@@ -224,25 +229,39 @@ class TradeDatabase:
             prow = cursor.fetchone()
 
             if prow:
-                wr = prow['win_rate']
-                avg_w = prow['avg_win_pips']
-                avg_l = prow['avg_loss_pips']
-                direction = prow['signal'] if prow['signal'] in ['BUY', 'SELL'] else np.random.choice(['BUY', 'SELL'])
+                wr = prow["win_rate"]
+                avg_w = prow["avg_win_pips"]
+                avg_l = prow["avg_loss_pips"]
+                direction = (
+                    prow["signal"]
+                    if prow["signal"] in ["BUY", "SELL"]
+                    else np.random.choice(["BUY", "SELL"])
+                )
             else:
                 wr = 0.5
                 avg_w = 50
                 avg_l = 40
-                direction = np.random.choice(['BUY', 'SELL'])
+                direction = np.random.choice(["BUY", "SELL"])
 
             # Determine outcome based on actual win rate
             is_win = np.random.random() < wr
             outcome = "WIN" if is_win else "LOSS"
 
             # Generate realistic prices
-            base_price = {"EURUSD": 1.0850, "GBPUSD": 1.2650, "USDJPY": 149.50,
-                          "AUDUSD": 0.6520, "XAUUSD": 2025.0}.get(pair, 1.0)
-            pip_size = {"EURUSD": 0.0001, "GBPUSD": 0.0001, "USDJPY": 0.01,
-                        "AUDUSD": 0.0001, "XAUUSD": 0.10}.get(pair, 0.0001)
+            base_price = {
+                "EURUSD": 1.0850,
+                "GBPUSD": 1.2650,
+                "USDJPY": 149.50,
+                "AUDUSD": 0.6520,
+                "XAUUSD": 2025.0,
+            }.get(pair, 1.0)
+            pip_size = {
+                "EURUSD": 0.0001,
+                "GBPUSD": 0.0001,
+                "USDJPY": 0.01,
+                "AUDUSD": 0.0001,
+                "XAUUSD": 0.10,
+            }.get(pair, 0.0001)
 
             entry = base_price + np.random.normal(0, 50 * pip_size)
             sl_distance = np.random.uniform(20, 80)
@@ -263,20 +282,57 @@ class TradeDatabase:
                 rr = pips / sl_distance
 
             # Generate dates
-            entry_date = (datetime(2023, 1, 1) + timedelta(days=np.random.randint(0, 730))).isoformat()
-            exit_date = (datetime.fromisoformat(entry_date) + timedelta(hours=np.random.randint(1, 72))).isoformat()
+            entry_date = (
+                datetime(2023, 1, 1) + timedelta(days=np.random.randint(0, 730))
+            ).isoformat()
+            exit_date = (
+                datetime.fromisoformat(entry_date)
+                + timedelta(hours=np.random.randint(1, 72))
+            ).isoformat()
 
             heuristic_conf = np.random.uniform(0.4, 0.95)
-            grade = "A+" if heuristic_conf > 0.85 else "A" if heuristic_conf > 0.70 else "B" if heuristic_conf > 0.55 else "C" if heuristic_conf > 0.40 else "D"
+            grade = (
+                "A+"
+                if heuristic_conf > 0.85
+                else (
+                    "A"
+                    if heuristic_conf > 0.70
+                    else (
+                        "B"
+                        if heuristic_conf > 0.55
+                        else "C" if heuristic_conf > 0.40 else "D"
+                    )
+                )
+            )
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO trades (trade_type, pair, timeframe, direction, entry_price,
                                     stop_loss, take_profit, entry_date, exit_date, outcome,
                                     pips_gained, risk_reward_achieved, pattern_name,
                                     heuristic_confidence, confluence_grade, regime, session)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, ('backtest', pair, tf, direction, entry, sl, tp, entry_date, exit_date,
-                  outcome, pips, rr, pname, heuristic_conf, grade, regime, session))
+            """,
+                (
+                    "backtest",
+                    pair,
+                    tf,
+                    direction,
+                    entry,
+                    sl,
+                    tp,
+                    entry_date,
+                    exit_date,
+                    outcome,
+                    pips,
+                    rr,
+                    pname,
+                    heuristic_conf,
+                    grade,
+                    regime,
+                    session,
+                ),
+            )
 
         # ── Seed Pattern Combos ──
         combos = [
@@ -294,13 +350,25 @@ class TradeDatabase:
 
         for names, total, wins, avg_w, avg_l, pf in combos:
             combo_hash = names.replace(" + ", "_").replace(" ", "").lower()
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO pattern_combos (combo_hash, combo_names, total_occurrences,
                                             wins, losses, win_rate, avg_win_pips,
                                             avg_loss_pips, profit_factor)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (combo_hash, names, total, wins, total - wins,
-                  wins / total, avg_w, avg_l, pf))
+            """,
+                (
+                    combo_hash,
+                    names,
+                    total,
+                    wins,
+                    total - wins,
+                    wins / total,
+                    avg_w,
+                    avg_l,
+                    pf,
+                ),
+            )
 
         # ── Seed Calibration Map ──
         buckets = [
@@ -318,12 +386,15 @@ class TradeDatabase:
         ]
 
         for bucket, rmin, rmax, total, wins in buckets:
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO calibration_map (heuristic_bucket, heuristic_range_min,
                                              heuristic_range_max, total_trades, wins,
                                              measured_probability)
                 VALUES (?, ?, ?, ?, ?, ?)
-            """, (bucket, rmin, rmax, total, wins, wins / total))
+            """,
+                (bucket, rmin, rmax, total, wins, wins / total),
+            )
 
         # ── Seed Kelly Params ──
         kelly_data = [
@@ -341,11 +412,14 @@ class TradeDatabase:
         ]
 
         for setup, total, wr, avg_w, avg_l, wlr, kelly, half_k in kelly_data:
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO kelly_params (setup_type, total_trades, win_rate, avg_win,
                                           avg_loss, win_loss_ratio, kelly_fraction, half_kelly)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (setup, total, wr, avg_w, avg_l, wlr, kelly, half_k))
+            """,
+                (setup, total, wr, avg_w, avg_l, wlr, kelly, half_k),
+            )
 
         self.conn.commit()
 
@@ -369,17 +443,22 @@ class TradeDatabase:
         combo_str = " + ".join(sorted(combo_names))
         combo_hash = combo_str.replace(" + ", "_").replace(" ", "").lower()
         cursor = self.conn.cursor()
-        cursor.execute("SELECT * FROM pattern_combos WHERE combo_hash = ?", (combo_hash,))
+        cursor.execute(
+            "SELECT * FROM pattern_combos WHERE combo_hash = ?", (combo_hash,)
+        )
         row = cursor.fetchone()
         return dict(row) if row else None
 
     def get_calibration(self, heuristic_score: float) -> Optional[dict]:
         """Get calibrated probability for a heuristic score."""
         cursor = self.conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT * FROM calibration_map
             WHERE heuristic_range_min <= ? AND heuristic_range_max > ?
-        """, (heuristic_score, heuristic_score))
+        """,
+            (heuristic_score, heuristic_score),
+        )
         row = cursor.fetchone()
         return dict(row) if row else None
 
@@ -390,9 +469,14 @@ class TradeDatabase:
         row = cursor.fetchone()
         return dict(row) if row else None
 
-    def get_trades(self, pattern_name: str = None, pair: str = None,
-                   direction: str = None, outcome: str = None,
-                   limit: int = 100) -> List[dict]:
+    def get_trades(
+        self,
+        pattern_name: str = None,
+        pair: str = None,
+        direction: str = None,
+        outcome: str = None,
+        limit: int = 100,
+    ) -> List[dict]:
         """Query trades with filters."""
         cursor = self.conn.cursor()
         query = "SELECT * FROM trades WHERE 1=1"
@@ -431,14 +515,14 @@ class TradeDatabase:
         result = {}
         for row in cursor.fetchall():
             r = dict(row)
-            grade = r['confluence_grade']
+            grade = r["confluence_grade"]
             result[grade] = {
-                "total_trades": r['total'],
-                "wins": r['wins'],
-                "win_rate": r['wins'] / r['total'] if r['total'] > 0 else 0,
-                "avg_pips": round(r['avg_pips'] or 0, 1),
-                "avg_win_pips": round(r['avg_win'] or 0, 1),
-                "avg_loss_pips": round(r['avg_loss'] or 0, 1),
+                "total_trades": r["total"],
+                "wins": r["wins"],
+                "win_rate": r["wins"] / r["total"] if r["total"] > 0 else 0,
+                "avg_pips": round(r["avg_pips"] or 0, 1),
+                "avg_win_pips": round(r["avg_win"] or 0, 1),
+                "avg_loss_pips": round(r["avg_loss"] or 0, 1),
             }
         return result
 
@@ -460,51 +544,55 @@ class TradeDatabase:
             r = dict(row)
             key = f"{r['regime']}_{r['session']}"
             result[key] = {
-                "regime": r['regime'],
-                "session": r['session'],
-                "total_trades": r['total'],
-                "wins": r['wins'],
-                "win_rate": r['wins'] / r['total'] if r['total'] > 0 else 0,
-                "avg_pips": round(r['avg_pips'] or 0, 1),
+                "regime": r["regime"],
+                "session": r["session"],
+                "total_trades": r["total"],
+                "wins": r["wins"],
+                "win_rate": r["wins"] / r["total"] if r["total"] > 0 else 0,
+                "avg_pips": round(r["avg_pips"] or 0, 1),
             }
         return result
 
     def insert_trade(self, trade: dict) -> int:
         """Insert a new trade record (backtest or live)."""
         cursor = self.conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO trades (trade_type, pair, timeframe, direction, entry_price,
                                 stop_loss, take_profit, entry_date, exit_date, outcome,
                                 pips_gained, risk_reward_achieved, pattern_name,
                                 heuristic_confidence, confluence_grade, regime, session, notes)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            trade.get('trade_type', 'live'),
-            trade.get('pair', 'EURUSD'),
-            trade.get('timeframe', 'H1'),
-            trade.get('direction', 'BUY'),
-            trade.get('entry_price', 0),
-            trade.get('stop_loss', 0),
-            trade.get('take_profit', 0),
-            trade.get('entry_date', datetime.now().isoformat()),
-            trade.get('exit_date'),
-            trade.get('outcome'),
-            trade.get('pips_gained', 0),
-            trade.get('risk_reward_achieved', 0),
-            trade.get('pattern_name'),
-            trade.get('heuristic_confidence', 0),
-            trade.get('confluence_grade'),
-            trade.get('regime'),
-            trade.get('session'),
-            trade.get('notes'),
-        ))
+        """,
+            (
+                trade.get("trade_type", "live"),
+                trade.get("pair", "EURUSD"),
+                trade.get("timeframe", "H1"),
+                trade.get("direction", "BUY"),
+                trade.get("entry_price", 0),
+                trade.get("stop_loss", 0),
+                trade.get("take_profit", 0),
+                trade.get("entry_date", datetime.now().isoformat()),
+                trade.get("exit_date"),
+                trade.get("outcome"),
+                trade.get("pips_gained", 0),
+                trade.get("risk_reward_achieved", 0),
+                trade.get("pattern_name"),
+                trade.get("heuristic_confidence", 0),
+                trade.get("confluence_grade"),
+                trade.get("regime"),
+                trade.get("session"),
+                trade.get("notes"),
+            ),
+        )
         self.conn.commit()
         return cursor.lastrowid
 
     def update_pattern_stats(self, pattern_name: str):
         """Recalculate pattern stats from actual trades."""
         cursor = self.conn.cursor()
-        cursor.execute("""
+        cursor.execute(
+            """
             UPDATE patterns SET
                 total_occurrences = (SELECT COUNT(*) FROM trades WHERE pattern_name = ?),
                 wins = (SELECT COUNT(*) FROM trades WHERE pattern_name = ? AND outcome = 'WIN'),
@@ -515,7 +603,9 @@ class TradeDatabase:
                 avg_loss_pips = (SELECT AVG(ABS(pips_gained)) FROM trades WHERE pattern_name = ? AND outcome = 'LOSS'),
                 last_updated = CURRENT_TIMESTAMP
             WHERE name = ?
-        """, (pattern_name,) * 7 + (pattern_name,))
+        """,
+            (pattern_name,) * 7 + (pattern_name,),
+        )
         self.conn.commit()
 
     def get_database_stats(self) -> dict:
@@ -563,7 +653,11 @@ class TradeDatabase:
             "overall_win_rate": wins / total_trades if total_trades > 0 else 0,
             "avg_win_pips": round(avg_win, 1),
             "avg_loss_pips": round(avg_loss, 1),
-            "profit_factor": round((wins * avg_win) / ((total_trades - wins) * avg_loss), 2) if (total_trades - wins) * avg_loss > 0 else 0,
+            "profit_factor": (
+                round((wins * avg_win) / ((total_trades - wins) * avg_loss), 2)
+                if (total_trades - wins) * avg_loss > 0
+                else 0
+            ),
             "patterns_tracked": pattern_count,
             "pattern_combos": combo_count,
             "calibration_buckets": cal_count,
@@ -588,4 +682,3 @@ class TradeDatabase:
             self.close()
         except Exception:
             pass
-

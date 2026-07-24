@@ -13,10 +13,12 @@ They are expert-system approximations. This module adds statistical validation:
 7. Kelly-Optimal Position Sizing — based on ACTUAL (not estimated) edge
 """
 
+from typing import Dict, List, Optional, Tuple
+
 import numpy as np
 from scipy import stats
 from scipy.special import comb
-from typing import List, Dict, Tuple, Optional
+
 
 class StatisticalValidator:
     """
@@ -28,6 +30,7 @@ class StatisticalValidator:
         self.calibration_data = []
         self.monte_carlo_results = {}
         self.bootstrap_results = {}
+
     # METHOD 1: MONTE CARLO SIMULATION
     def monte_carlo_validation(
         self,
@@ -35,7 +38,7 @@ class StatisticalValidator:
         pattern_results: list,
         structure_results: dict,
         n_simulations: int = 5000,
-        confidence_level: float = 0.85
+        confidence_level: float = 0.85,
     ) -> dict:
         """
         Monte Carlo Simulation for Pattern Validation
@@ -58,7 +61,11 @@ class StatisticalValidator:
         sigma = np.std(returns)
         last_price = smoothed[-1]
         pattern_name = pattern_results[0]["name"] if pattern_results else "Unknown"
-        pattern_direction = pattern_results[0].get("target_direction", "PENDING") if pattern_results else "PENDING"
+        pattern_direction = (
+            pattern_results[0].get("target_direction", "PENDING")
+            if pattern_results
+            else "PENDING"
+        )
 
         n_bars = len(smoothed)
         random_pattern_count = 0
@@ -66,11 +73,13 @@ class StatisticalValidator:
         random_strong_moves = 0
 
         # The actual observed move from the chart
-        first_half = smoothed[:n_bars // 2]
-        second_half = smoothed[n_bars // 2:]
+        first_half = smoothed[: n_bars // 2]
+        second_half = smoothed[n_bars // 2 :]
         actual_second_half_change = 0
         if len(first_half) > 0 and len(second_half) > 0:
-            actual_second_half_change = (second_half[-1] - first_half[-1]) / (first_half[-1] + 1e-6)
+            actual_second_half_change = (second_half[-1] - first_half[-1]) / (
+                first_half[-1] + 1e-6
+            )
 
         for sim in range(n_simulations):
             # Generate Geometric Brownian Motion path
@@ -79,12 +88,16 @@ class StatisticalValidator:
             random_prices[0] = smoothed[0]
 
             for i in range(1, n_bars):
-                random_prices[i] = random_prices[i - 1] * (1 + random_returns_sim[i - 1])
+                random_prices[i] = random_prices[i - 1] * (
+                    1 + random_returns_sim[i - 1]
+                )
 
             # Compare: does random path produce a move as strong as the actual chart?
             if pattern_direction != "PENDING":
                 mid_point = n_bars // 2
-                random_change = (random_prices[-1] - random_prices[mid_point]) / (random_prices[mid_point] + 1e-6)
+                random_change = (random_prices[-1] - random_prices[mid_point]) / (
+                    random_prices[mid_point] + 1e-6
+                )
 
                 if pattern_direction == "UP":
                     if random_change > 0:
@@ -97,15 +110,23 @@ class StatisticalValidator:
                         random_profitable += 1
                     if random_change <= actual_second_half_change:
                         random_strong_moves += 1
-        random_win_rate = random_profitable / n_simulations if n_simulations > 0 else 0.5
+        random_win_rate = (
+            random_profitable / n_simulations if n_simulations > 0 else 0.5
+        )
         # How often does random data produce a move AS STRONG as the observed pattern?
-        random_strong_rate = random_strong_moves / n_simulations if n_simulations > 0 else 0.5
+        random_strong_rate = (
+            random_strong_moves / n_simulations if n_simulations > 0 else 0.5
+        )
 
         # The pattern's TRUE edge
-        pattern_confidence = pattern_results[0].get("confidence", 0.5) if pattern_results else 0.5
+        pattern_confidence = (
+            pattern_results[0].get("confidence", 0.5) if pattern_results else 0.5
+        )
 
         # Bayesian adjustment using strong_move_rate
-        statistical_prob = self._bayesian_adjust(pattern_confidence, random_strong_rate, n_simulations)
+        statistical_prob = self._bayesian_adjust(
+            pattern_confidence, random_strong_rate, n_simulations
+        )
 
         # Empirical p-value: how likely is this strong a move by chance?
         p_value = max(0.001, float(random_strong_rate))
@@ -137,8 +158,9 @@ class StatisticalValidator:
             ),
         }
 
-    def _bayesian_adjust(self, heuristic_conf: float, random_rate: float,
-                         n_sims: int) -> float:
+    def _bayesian_adjust(
+        self, heuristic_conf: float, random_rate: float, n_sims: int
+    ) -> float:
         """
         Bayesian adjustment: combine heuristic belief with empirical evidence.
 
@@ -189,12 +211,13 @@ class StatisticalValidator:
                 f"🔴 NOT SIGNIFICANT: {stat_prob:.0%} vs {random_rate:.0%} random baseline. "
                 f"This pattern could easily appear in random data. DO NOT TRADE on this alone."
             )
+
     # METHOD 2: BOOTSTRAP CONFIDENCE INTERVALS
     def bootstrap_confidence_interval(
         self,
         price_series: dict,
         n_bootstrap: int = 10000,
-        confidence_levels: list = [0.85, 0.90, 0.95, 0.99]
+        confidence_levels: list = [0.85, 0.90, 0.95, 0.99],
     ) -> dict:
         """
         Bootstrap Resampling for True Confidence Intervals
@@ -254,15 +277,15 @@ class StatisticalValidator:
             results[f"ci_{int(cl*100)}"] = {
                 "trend_strength": (
                     round(float(np.percentile(trend_strengths, lower * 100)), 3),
-                    round(float(np.percentile(trend_strengths, upper * 100)), 3)
+                    round(float(np.percentile(trend_strengths, upper * 100)), 3),
                 ),
                 "win_rate": (
                     round(float(np.percentile(win_rates, lower * 100)), 3),
-                    round(float(np.percentile(win_rates, upper * 100)), 3)
+                    round(float(np.percentile(win_rates, upper * 100)), 3),
                 ),
                 "volatility": (
                     round(float(np.percentile(volatilities, lower * 100)), 5),
-                    round(float(np.percentile(volatilities, upper * 100)), 5)
+                    round(float(np.percentile(volatilities, upper * 100)), 5),
                 ),
             }
 
@@ -310,6 +333,7 @@ class StatisticalValidator:
                 f"🔴 Low confidence: Win rate CI is [{wr_ci[0]:.1%}, {wr_ci[1]:.1%}]. "
                 f"Cannot reliably claim >85% confidence. Approach with extreme caution."
             )
+
     # METHOD 3: SHANNON ENTROPY SCORING
     def shannon_entropy_analysis(self, price_series: dict) -> dict:
         """
@@ -365,7 +389,9 @@ class StatisticalValidator:
             "information_quality": round(float(info_quality), 4),
             "p_up": round(float(p_up), 3),
             "p_down": round(float(p_down), 3),
-            "interpretation": self._interpret_entropy(entropy, predictability, mutual_info),
+            "interpretation": self._interpret_entropy(
+                entropy, predictability, mutual_info
+            ),
             "can_claim_85": predictability >= 0.85,
         }
 
@@ -419,6 +445,7 @@ class StatisticalValidator:
                 f"Entropy is {entropy:.2f} bits — close to random. "
                 f"Patterns in this environment are likely NOISE, not signal. BE VERY CAUTIOUS."
             )
+
     # METHOD 4: MARKOV CHAIN TRANSITION PROBABILITIES
     def markov_chain_analysis(self, price_series: dict) -> dict:
         """
@@ -448,15 +475,15 @@ class StatisticalValidator:
 
         for r in returns:
             if r > 0.02:
-                states.append(0)   # Strong up
+                states.append(0)  # Strong up
             elif r > 0.005:
-                states.append(1)   # Weak up
+                states.append(1)  # Weak up
             elif r > -0.005:
-                states.append(2)   # Ranging
+                states.append(2)  # Ranging
             elif r > -0.02:
-                states.append(3)   # Weak down
+                states.append(3)  # Weak down
             else:
-                states.append(4)   # Strong down
+                states.append(4)  # Strong down
 
         # Build transition matrix
         n_states = 5
@@ -481,10 +508,14 @@ class StatisticalValidator:
         persistence = transition_matrix[current_state, current_state]
 
         # Calculate bullish probability (transition to states 0 or 1)
-        bullish_prob = transition_matrix[current_state, 0] + transition_matrix[current_state, 1]
+        bullish_prob = (
+            transition_matrix[current_state, 0] + transition_matrix[current_state, 1]
+        )
 
         # Calculate bearish probability
-        bearish_prob = transition_matrix[current_state, 3] + transition_matrix[current_state, 4]
+        bearish_prob = (
+            transition_matrix[current_state, 3] + transition_matrix[current_state, 4]
+        )
 
         # Multi-step forecast (5 bars ahead)
         multi_step = np.linalg.matrix_power(transition_matrix, 5)
@@ -497,8 +528,10 @@ class StatisticalValidator:
             "method": "Markov Chain Transition Probabilities",
             "current_state": state_names[current_state],
             "transition_matrix": {
-                state_names[i]: {state_names[j]: round(float(transition_matrix[i, j]), 3)
-                                 for j in range(n_states)}
+                state_names[i]: {
+                    state_names[j]: round(float(transition_matrix[i, j]), 3)
+                    for j in range(n_states)
+                }
                 for i in range(n_states)
             },
             "persistence_probability": round(float(persistence), 3),
@@ -510,7 +543,12 @@ class StatisticalValidator:
             "can_claim_85_next_bar": bullish_prob >= 0.85 or bearish_prob >= 0.85,
             "can_claim_85_five_bar": bull_5_step >= 0.85 or bear_5_step >= 0.85,
             "interpretation": self._interpret_markov(
-                current_state, state_names, bullish_prob, bearish_prob, persistence, bull_5_step
+                current_state,
+                state_names,
+                bullish_prob,
+                bearish_prob,
+                persistence,
+                bull_5_step,
             ),
         }
 
@@ -534,6 +572,7 @@ class StatisticalValidator:
                 f"🔴 UNCERTAIN: Only {dominant_prob:.0%} directional probability. "
                 f"Market state transitions are too random for high-confidence predictions."
             )
+
     # METHOD 5: COMPREHENSIVE PROBABILITY AUDIT
     def full_probability_audit(
         self,
@@ -542,7 +581,7 @@ class StatisticalValidator:
         structure_results: dict,
         confluence_results: dict,
         n_simulations: int = 3000,
-        n_bootstrap: int = 5000
+        n_bootstrap: int = 5000,
     ) -> dict:
         """
         THE ULTIMATE PROBABILITY AUDIT
@@ -572,7 +611,9 @@ class StatisticalValidator:
 
         # 5. Confluence analysis (from existing engine)
         confluence_grade = confluence_results.get("master", {}).get("grade", "D")
-        confluence_direction = confluence_results.get("master", {}).get("direction", "NEUTRAL")
+        confluence_direction = confluence_results.get("master", {}).get(
+            "direction", "NEUTRAL"
+        )
         confluence_conf = confluence_results.get("master", {}).get("confidence", 0)
 
         # 6. FINAL VERDICT — aggregate all methods
@@ -582,8 +623,9 @@ class StatisticalValidator:
 
         return audit
 
-    def _final_verdict(self, audit: dict, confluence_grade: str,
-                       confluence_conf: float) -> dict:
+    def _final_verdict(
+        self, audit: dict, confluence_grade: str, confluence_conf: float
+    ) -> dict:
         """
         Aggregate verdict from all statistical methods.
 
@@ -596,39 +638,113 @@ class StatisticalValidator:
         # Monte Carlo vote
         mc = audit.get("monte_carlo", {})
         if mc.get("exceeds_85_confidence"):
-            votes.append({"method": "Monte Carlo", "verdict": "PASS_85", "prob": mc.get("statistical_probability", 0)})
+            votes.append(
+                {
+                    "method": "Monte Carlo",
+                    "verdict": "PASS_85",
+                    "prob": mc.get("statistical_probability", 0),
+                }
+            )
         elif mc.get("is_statistically_significant"):
-            votes.append({"method": "Monte Carlo", "verdict": "SIGNIFICANT", "prob": mc.get("statistical_probability", 0)})
+            votes.append(
+                {
+                    "method": "Monte Carlo",
+                    "verdict": "SIGNIFICANT",
+                    "prob": mc.get("statistical_probability", 0),
+                }
+            )
         else:
-            votes.append({"method": "Monte Carlo", "verdict": "FAIL", "prob": mc.get("statistical_probability", 0)})
+            votes.append(
+                {
+                    "method": "Monte Carlo",
+                    "verdict": "FAIL",
+                    "prob": mc.get("statistical_probability", 0),
+                }
+            )
 
         # Entropy vote
         ent = audit.get("entropy", {})
         if ent.get("can_claim_85"):
-            votes.append({"method": "Shannon Entropy", "verdict": "PASS_85", "prob": ent.get("predictability", 0)})
+            votes.append(
+                {
+                    "method": "Shannon Entropy",
+                    "verdict": "PASS_85",
+                    "prob": ent.get("predictability", 0),
+                }
+            )
         elif ent.get("predictability", 0) > 0.5:
-            votes.append({"method": "Shannon Entropy", "verdict": "MODERATE", "prob": ent.get("predictability", 0)})
+            votes.append(
+                {
+                    "method": "Shannon Entropy",
+                    "verdict": "MODERATE",
+                    "prob": ent.get("predictability", 0),
+                }
+            )
         else:
-            votes.append({"method": "Shannon Entropy", "verdict": "FAIL", "prob": ent.get("predictability", 0)})
+            votes.append(
+                {
+                    "method": "Shannon Entropy",
+                    "verdict": "FAIL",
+                    "prob": ent.get("predictability", 0),
+                }
+            )
 
         # Markov vote
         mk = audit.get("markov", {})
         if mk.get("can_claim_85_next_bar"):
-            votes.append({"method": "Markov Chain", "verdict": "PASS_85", "prob": max(mk.get("next_bar_bullish_prob", 0), mk.get("next_bar_bearish_prob", 0))})
+            votes.append(
+                {
+                    "method": "Markov Chain",
+                    "verdict": "PASS_85",
+                    "prob": max(
+                        mk.get("next_bar_bullish_prob", 0),
+                        mk.get("next_bar_bearish_prob", 0),
+                    ),
+                }
+            )
         else:
-            votes.append({"method": "Markov Chain", "verdict": "FAIL", "prob": max(mk.get("next_bar_bullish_prob", 0), mk.get("next_bar_bearish_prob", 0))})
+            votes.append(
+                {
+                    "method": "Markov Chain",
+                    "verdict": "FAIL",
+                    "prob": max(
+                        mk.get("next_bar_bullish_prob", 0),
+                        mk.get("next_bar_bearish_prob", 0),
+                    ),
+                }
+            )
 
         # Confluence vote
         if confluence_grade in ["A+", "A"]:
-            votes.append({"method": "Confluence Engine", "verdict": "PASS_85", "prob": confluence_conf})
+            votes.append(
+                {
+                    "method": "Confluence Engine",
+                    "verdict": "PASS_85",
+                    "prob": confluence_conf,
+                }
+            )
         elif confluence_grade == "B":
-            votes.append({"method": "Confluence Engine", "verdict": "MODERATE", "prob": confluence_conf})
+            votes.append(
+                {
+                    "method": "Confluence Engine",
+                    "verdict": "MODERATE",
+                    "prob": confluence_conf,
+                }
+            )
         else:
-            votes.append({"method": "Confluence Engine", "verdict": "FAIL", "prob": confluence_conf})
+            votes.append(
+                {
+                    "method": "Confluence Engine",
+                    "verdict": "FAIL",
+                    "prob": confluence_conf,
+                }
+            )
 
         # Count votes
         pass_count = sum(1 for v in votes if v["verdict"] == "PASS_85")
-        moderate_count = sum(1 for v in votes if v["verdict"] in ["SIGNIFICANT", "MODERATE"])
+        moderate_count = sum(
+            1 for v in votes if v["verdict"] in ["SIGNIFICANT", "MODERATE"]
+        )
         fail_count = sum(1 for v in votes if v["verdict"] == "FAIL")
 
         # Final decision
@@ -671,4 +787,3 @@ class StatisticalValidator:
                 f"{'The signal IS genuine.' if pass_count >= 3 else 'The signal MAY be overconfident.'}"
             ),
         }
-
