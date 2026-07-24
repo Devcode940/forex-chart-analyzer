@@ -5,8 +5,9 @@ symmetry scoring, quality metrics, and Cup & Handle detection.
 """
 
 import numpy as np
-from scipy.signal import find_peaks
 from scipy.ndimage import gaussian_filter1d
+from scipy.signal import find_peaks
+
 
 class PatternDetector:
     """Detects geometric chart patterns from price data with enhanced accuracy."""
@@ -14,11 +15,12 @@ class PatternDetector:
     def __init__(self):
         self.detected_patterns = []
 
-    def detect_all(self, price_series: dict, image_height: int,
-                   structure_context: dict = None) -> list:
+    def detect_all(
+        self, price_series: dict, image_height: int, structure_context: dict = None
+    ) -> list:
         """Run all pattern detection algorithms with optional structure context.
 
-                'trend_direction' for trend-alignment confidence scoring.
+        'trend_direction' for trend-alignment confidence scoring.
 
         """
         self.detected_patterns = []
@@ -34,7 +36,9 @@ class PatternDetector:
 
         # Core patterns
         self._detect_head_and_shoulders(swing_points, x_positions, smoothed, trend_dir)
-        self._detect_inverse_head_and_shoulders(swing_points, x_positions, smoothed, trend_dir)
+        self._detect_inverse_head_and_shoulders(
+            swing_points, x_positions, smoothed, trend_dir
+        )
         self._detect_double_top(swing_points, x_positions, smoothed, trend_dir)
         self._detect_double_bottom(swing_points, x_positions, smoothed, trend_dir)
         self._detect_ascending_triangle(swing_points, x_positions, smoothed)
@@ -64,17 +68,22 @@ class PatternDetector:
 
         return {
             "highs": [{"idx": int(i), "val": float(smoothed[i])} for i in highs_idx],
-            "lows": [{"idx": int(i), "val": float(smoothed[i])} for i in lows_idx]
+            "lows": [{"idx": int(i), "val": float(smoothed[i])} for i in lows_idx],
         }
 
     # ── Confidence calculator ────────────────────────────────────────
 
-    def _calculate_confidence(self, base: float, symmetry: float = 1.0,
-                              trend_align: float = 1.0, quality: float = 1.0) -> float:
+    def _calculate_confidence(
+        self,
+        base: float,
+        symmetry: float = 1.0,
+        trend_align: float = 1.0,
+        quality: float = 1.0,
+    ) -> float:
         """Compounded confidence from multiple independent factors.
 
-                pattern matches expected trend context.
-            quality: Data quality / noise score (0.7–1.0).
+            pattern matches expected trend context.
+        quality: Data quality / noise score (0.7–1.0).
 
         """
         conf = base * symmetry * trend_align * quality
@@ -106,14 +115,16 @@ class PatternDetector:
         }
         return alignment_map.get((pattern_direction, trend_dir), 1.0)
 
-    def _quality_score(self, smoothed: np.ndarray, idx_start: int, idx_end: int) -> float:
+    def _quality_score(
+        self, smoothed: np.ndarray, idx_start: int, idx_end: int
+    ) -> float:
         """Assess data quality in a pattern region based on noise level.
 
         Low noise = higher quality. Returns 0.7–1.0.
         """
         if idx_end <= idx_start + 2:
             return 0.7
-        segment = smoothed[idx_start:idx_end + 1]
+        segment = smoothed[idx_start : idx_end + 1]
         if len(segment) < 3:
             return 0.7
         noise = np.std(np.diff(segment))
@@ -123,8 +134,9 @@ class PatternDetector:
 
     # ── Pattern: Head & Shoulders ────────────────────────────────────
 
-    def _detect_head_and_shoulders(self, swings: dict, x_pos: list,
-                                   smoothed: np.ndarray, trend_dir: str):
+    def _detect_head_and_shoulders(
+        self, swings: dict, x_pos: list, smoothed: np.ndarray, trend_dir: str
+    ):
         """Detect Head and Shoulders pattern (bearish reversal)."""
         highs = swings["highs"]
         lows = swings["lows"]
@@ -139,60 +151,89 @@ class PatternDetector:
             right_shoulder = highs[i + 2]
 
             # Head must be highest
-            if not (head["val"] > left_shoulder["val"] and head["val"] > right_shoulder["val"]):
+            if not (
+                head["val"] > left_shoulder["val"]
+                and head["val"] > right_shoulder["val"]
+            ):
                 continue
 
-            head_prominence = head["val"] - max(left_shoulder["val"], right_shoulder["val"])
+            head_prominence = head["val"] - max(
+                left_shoulder["val"], right_shoulder["val"]
+            )
             if head_prominence <= 0:
                 continue
 
             shoulder_diff = abs(left_shoulder["val"] - right_shoulder["val"])
-            symmetry = self._symmetry_score(left_shoulder["val"], right_shoulder["val"], head_prominence)
+            symmetry = self._symmetry_score(
+                left_shoulder["val"], right_shoulder["val"], head_prominence
+            )
 
             # Shoulders should be roughly equal relative to head prominence
             if shoulder_diff / (head_prominence + 1e-6) > 2.0:
                 continue
 
             # Find neckline lows between shoulders
-            relevant_lows = [l for l in lows
-                             if left_shoulder["idx"] <= l["idx"] <= right_shoulder["idx"]]
+            relevant_lows = [
+                l
+                for l in lows
+                if left_shoulder["idx"] <= l["idx"] <= right_shoulder["idx"]
+            ]
             if len(relevant_lows) < 2:
                 continue
 
-            quality = self._quality_score(smoothed, left_shoulder["idx"], right_shoulder["idx"])
+            quality = self._quality_score(
+                smoothed, left_shoulder["idx"], right_shoulder["idx"]
+            )
             trend_al = self._trend_alignment("DOWN", trend_dir)
 
             confidence = self._calculate_confidence(
-                base=0.70,
-                symmetry=symmetry,
-                trend_align=trend_al,
-                quality=quality
+                base=0.70, symmetry=symmetry, trend_align=trend_al, quality=quality
             )
 
-            self.detected_patterns.append({
-                "name": "Head & Shoulders",
-                "type": "BEARISH_REVERSAL",
-                "confidence": confidence,
-                "symmetry": round(symmetry, 3),
-                "quality_score": round(quality, 3),
-                "description": "Classic bearish reversal pattern with left shoulder, head, and right shoulder. Watch for neckline break.",
-                "key_points": {
-                    "left_shoulder": {"idx": left_shoulder["idx"], "val": left_shoulder["val"]},
-                    "head": {"idx": head["idx"], "val": head["val"]},
-                    "right_shoulder": {"idx": right_shoulder["idx"], "val": right_shoulder["val"]},
-                    "neckline_lows": [{"idx": l["idx"], "val": l["val"]} for l in relevant_lows[:2]]
-                },
-                "x_range": (
-                    x_pos[left_shoulder["idx"]] if left_shoulder["idx"] < len(x_pos) else 0,
-                    x_pos[right_shoulder["idx"]] if right_shoulder["idx"] < len(x_pos) else 0
-                ),
-                "target_direction": "DOWN"
-            })
+            self.detected_patterns.append(
+                {
+                    "name": "Head & Shoulders",
+                    "type": "BEARISH_REVERSAL",
+                    "confidence": confidence,
+                    "symmetry": round(symmetry, 3),
+                    "quality_score": round(quality, 3),
+                    "description": "Classic bearish reversal pattern with left shoulder, head, and right shoulder. Watch for neckline break.",
+                    "key_points": {
+                        "left_shoulder": {
+                            "idx": left_shoulder["idx"],
+                            "val": left_shoulder["val"],
+                        },
+                        "head": {"idx": head["idx"], "val": head["val"]},
+                        "right_shoulder": {
+                            "idx": right_shoulder["idx"],
+                            "val": right_shoulder["val"],
+                        },
+                        "neckline_lows": [
+                            {"idx": l["idx"], "val": l["val"]}
+                            for l in relevant_lows[:2]
+                        ],
+                    },
+                    "x_range": (
+                        (
+                            x_pos[left_shoulder["idx"]]
+                            if left_shoulder["idx"] < len(x_pos)
+                            else 0
+                        ),
+                        (
+                            x_pos[right_shoulder["idx"]]
+                            if right_shoulder["idx"] < len(x_pos)
+                            else 0
+                        ),
+                    ),
+                    "target_direction": "DOWN",
+                }
+            )
 
     # ── Pattern: Inverse Head & Shoulders ────────────────────────────
 
-    def _detect_inverse_head_and_shoulders(self, swings: dict, x_pos: list,
-                                           smoothed: np.ndarray, trend_dir: str):
+    def _detect_inverse_head_and_shoulders(
+        self, swings: dict, x_pos: list, smoothed: np.ndarray, trend_dir: str
+    ):
         """Detect Inverse Head and Shoulders (bullish reversal)."""
         highs = swings["highs"]
         lows = swings["lows"]
@@ -207,58 +248,87 @@ class PatternDetector:
             right_shoulder = lows[i + 2]
 
             # Head must be lowest
-            if not (head["val"] < left_shoulder["val"] and head["val"] < right_shoulder["val"]):
+            if not (
+                head["val"] < left_shoulder["val"]
+                and head["val"] < right_shoulder["val"]
+            ):
                 continue
 
-            head_prominence = min(left_shoulder["val"], right_shoulder["val"]) - head["val"]
+            head_prominence = (
+                min(left_shoulder["val"], right_shoulder["val"]) - head["val"]
+            )
             if head_prominence <= 0:
                 continue
 
             shoulder_diff = abs(left_shoulder["val"] - right_shoulder["val"])
-            symmetry = self._symmetry_score(left_shoulder["val"], right_shoulder["val"], head_prominence)
+            symmetry = self._symmetry_score(
+                left_shoulder["val"], right_shoulder["val"], head_prominence
+            )
 
             if shoulder_diff / (head_prominence + 1e-6) > 2.0:
                 continue
 
-            relevant_highs = [h for h in highs
-                              if left_shoulder["idx"] <= h["idx"] <= right_shoulder["idx"]]
+            relevant_highs = [
+                h
+                for h in highs
+                if left_shoulder["idx"] <= h["idx"] <= right_shoulder["idx"]
+            ]
             if len(relevant_highs) < 2:
                 continue
 
-            quality = self._quality_score(smoothed, left_shoulder["idx"], right_shoulder["idx"])
+            quality = self._quality_score(
+                smoothed, left_shoulder["idx"], right_shoulder["idx"]
+            )
             trend_al = self._trend_alignment("UP", trend_dir)
 
             confidence = self._calculate_confidence(
-                base=0.70,
-                symmetry=symmetry,
-                trend_align=trend_al,
-                quality=quality
+                base=0.70, symmetry=symmetry, trend_align=trend_al, quality=quality
             )
 
-            self.detected_patterns.append({
-                "name": "Inverse Head & Shoulders",
-                "type": "BULLISH_REVERSAL",
-                "confidence": confidence,
-                "symmetry": round(symmetry, 3),
-                "quality_score": round(quality, 3),
-                "description": "Bullish reversal pattern. Watch for neckline breakout to confirm trend change upward.",
-                "key_points": {
-                    "left_shoulder": {"idx": left_shoulder["idx"], "val": left_shoulder["val"]},
-                    "head": {"idx": head["idx"], "val": head["val"]},
-                    "right_shoulder": {"idx": right_shoulder["idx"], "val": right_shoulder["val"]},
-                    "neckline_highs": [{"idx": h["idx"], "val": h["val"]} for h in relevant_highs[:2]]
-                },
-                "x_range": (
-                    x_pos[left_shoulder["idx"]] if left_shoulder["idx"] < len(x_pos) else 0,
-                    x_pos[right_shoulder["idx"]] if right_shoulder["idx"] < len(x_pos) else 0
-                ),
-                "target_direction": "UP"
-            })
+            self.detected_patterns.append(
+                {
+                    "name": "Inverse Head & Shoulders",
+                    "type": "BULLISH_REVERSAL",
+                    "confidence": confidence,
+                    "symmetry": round(symmetry, 3),
+                    "quality_score": round(quality, 3),
+                    "description": "Bullish reversal pattern. Watch for neckline breakout to confirm trend change upward.",
+                    "key_points": {
+                        "left_shoulder": {
+                            "idx": left_shoulder["idx"],
+                            "val": left_shoulder["val"],
+                        },
+                        "head": {"idx": head["idx"], "val": head["val"]},
+                        "right_shoulder": {
+                            "idx": right_shoulder["idx"],
+                            "val": right_shoulder["val"],
+                        },
+                        "neckline_highs": [
+                            {"idx": h["idx"], "val": h["val"]}
+                            for h in relevant_highs[:2]
+                        ],
+                    },
+                    "x_range": (
+                        (
+                            x_pos[left_shoulder["idx"]]
+                            if left_shoulder["idx"] < len(x_pos)
+                            else 0
+                        ),
+                        (
+                            x_pos[right_shoulder["idx"]]
+                            if right_shoulder["idx"] < len(x_pos)
+                            else 0
+                        ),
+                    ),
+                    "target_direction": "UP",
+                }
+            )
 
     # ── Pattern: Double Top ──────────────────────────────────────────
 
-    def _detect_double_top(self, swings: dict, x_pos: list,
-                           smoothed: np.ndarray, trend_dir: str):
+    def _detect_double_top(
+        self, swings: dict, x_pos: list, smoothed: np.ndarray, trend_dir: str
+    ):
         """Detect Double Top pattern (bearish reversal)."""
         highs = swings["highs"]
         if len(highs) < 2:
@@ -277,34 +347,34 @@ class PatternDetector:
                 trend_al = self._trend_alignment("DOWN", trend_dir)
 
                 confidence = self._calculate_confidence(
-                    base=0.65,
-                    symmetry=symmetry,
-                    trend_align=trend_al,
-                    quality=quality
+                    base=0.65, symmetry=symmetry, trend_align=trend_al, quality=quality
                 )
 
-                self.detected_patterns.append({
-                    "name": "Double Top",
-                    "type": "BEARISH_REVERSAL",
-                    "confidence": confidence,
-                    "symmetry": round(symmetry, 3),
-                    "quality_score": round(quality, 3),
-                    "description": "Two peaks at similar price levels. A break below the valley confirms bearish reversal.",
-                    "key_points": {
-                        "top1": {"idx": h1["idx"], "val": h1["val"]},
-                        "top2": {"idx": h2["idx"], "val": h2["val"]}
-                    },
-                    "x_range": (
-                        x_pos[h1["idx"]] if h1["idx"] < len(x_pos) else 0,
-                        x_pos[h2["idx"]] if h2["idx"] < len(x_pos) else 0
-                    ),
-                    "target_direction": "DOWN"
-                })
+                self.detected_patterns.append(
+                    {
+                        "name": "Double Top",
+                        "type": "BEARISH_REVERSAL",
+                        "confidence": confidence,
+                        "symmetry": round(symmetry, 3),
+                        "quality_score": round(quality, 3),
+                        "description": "Two peaks at similar price levels. A break below the valley confirms bearish reversal.",
+                        "key_points": {
+                            "top1": {"idx": h1["idx"], "val": h1["val"]},
+                            "top2": {"idx": h2["idx"], "val": h2["val"]},
+                        },
+                        "x_range": (
+                            x_pos[h1["idx"]] if h1["idx"] < len(x_pos) else 0,
+                            x_pos[h2["idx"]] if h2["idx"] < len(x_pos) else 0,
+                        ),
+                        "target_direction": "DOWN",
+                    }
+                )
 
     # ── Pattern: Double Bottom ───────────────────────────────────────
 
-    def _detect_double_bottom(self, swings: dict, x_pos: list,
-                              smoothed: np.ndarray, trend_dir: str):
+    def _detect_double_bottom(
+        self, swings: dict, x_pos: list, smoothed: np.ndarray, trend_dir: str
+    ):
         """Detect Double Bottom pattern (bullish reversal)."""
         lows = swings["lows"]
         if len(lows) < 2:
@@ -323,34 +393,34 @@ class PatternDetector:
                 trend_al = self._trend_alignment("UP", trend_dir)
 
                 confidence = self._calculate_confidence(
-                    base=0.65,
-                    symmetry=symmetry,
-                    trend_align=trend_al,
-                    quality=quality
+                    base=0.65, symmetry=symmetry, trend_align=trend_al, quality=quality
                 )
 
-                self.detected_patterns.append({
-                    "name": "Double Bottom (W Pattern)",
-                    "type": "BULLISH_REVERSAL",
-                    "confidence": confidence,
-                    "symmetry": round(symmetry, 3),
-                    "quality_score": round(quality, 3),
-                    "description": "Two valleys at similar price levels. A break above the peak confirms bullish reversal.",
-                    "key_points": {
-                        "bottom1": {"idx": l1["idx"], "val": l1["val"]},
-                        "bottom2": {"idx": l2["idx"], "val": l2["val"]}
-                    },
-                    "x_range": (
-                        x_pos[l1["idx"]] if l1["idx"] < len(x_pos) else 0,
-                        x_pos[l2["idx"]] if l2["idx"] < len(x_pos) else 0
-                    ),
-                    "target_direction": "UP"
-                })
+                self.detected_patterns.append(
+                    {
+                        "name": "Double Bottom (W Pattern)",
+                        "type": "BULLISH_REVERSAL",
+                        "confidence": confidence,
+                        "symmetry": round(symmetry, 3),
+                        "quality_score": round(quality, 3),
+                        "description": "Two valleys at similar price levels. A break above the peak confirms bullish reversal.",
+                        "key_points": {
+                            "bottom1": {"idx": l1["idx"], "val": l1["val"]},
+                            "bottom2": {"idx": l2["idx"], "val": l2["val"]},
+                        },
+                        "x_range": (
+                            x_pos[l1["idx"]] if l1["idx"] < len(x_pos) else 0,
+                            x_pos[l2["idx"]] if l2["idx"] < len(x_pos) else 0,
+                        ),
+                        "target_direction": "UP",
+                    }
+                )
 
     # ── Pattern: Ascending Triangle ──────────────────────────────────
 
-    def _detect_ascending_triangle(self, swings: dict, x_pos: list,
-                                   smoothed: np.ndarray):
+    def _detect_ascending_triangle(
+        self, swings: dict, x_pos: list, smoothed: np.ndarray
+    ):
         """Detect Ascending Triangle (bullish continuation)."""
         highs = swings["highs"]
         lows = swings["lows"]
@@ -367,32 +437,45 @@ class PatternDetector:
                 if len(low_vals) >= 2:
                     low_slope = np.polyfit(range(len(low_vals)), low_vals, 1)[0]
                     if low_slope > 0:
-                        quality = self._quality_score(smoothed, highs[0]["idx"], highs[-1]["idx"])
+                        quality = self._quality_score(
+                            smoothed, highs[0]["idx"], highs[-1]["idx"]
+                        )
                         confidence = self._calculate_confidence(
                             base=0.65, symmetry=1.0, trend_align=1.1, quality=quality
                         )
 
-                        self.detected_patterns.append({
-                            "name": "Ascending Triangle",
-                            "type": "BULLISH_CONTINUATION",
-                            "confidence": confidence,
-                            "quality_score": round(quality, 3),
-                            "description": "Flat resistance with rising support. Expect breakout upward.",
-                            "key_points": {
-                                "resistance": float(np.mean(high_vals)),
-                                "rising_lows": low_vals
-                            },
-                            "x_range": (
-                                x_pos[highs[0]["idx"]] if highs[0]["idx"] < len(x_pos) else 0,
-                                x_pos[highs[-1]["idx"]] if highs[-1]["idx"] < len(x_pos) else 0
-                            ),
-                            "target_direction": "UP"
-                        })
+                        self.detected_patterns.append(
+                            {
+                                "name": "Ascending Triangle",
+                                "type": "BULLISH_CONTINUATION",
+                                "confidence": confidence,
+                                "quality_score": round(quality, 3),
+                                "description": "Flat resistance with rising support. Expect breakout upward.",
+                                "key_points": {
+                                    "resistance": float(np.mean(high_vals)),
+                                    "rising_lows": low_vals,
+                                },
+                                "x_range": (
+                                    (
+                                        x_pos[highs[0]["idx"]]
+                                        if highs[0]["idx"] < len(x_pos)
+                                        else 0
+                                    ),
+                                    (
+                                        x_pos[highs[-1]["idx"]]
+                                        if highs[-1]["idx"] < len(x_pos)
+                                        else 0
+                                    ),
+                                ),
+                                "target_direction": "UP",
+                            }
+                        )
 
     # ── Pattern: Descending Triangle ─────────────────────────────────
 
-    def _detect_descending_triangle(self, swings: dict, x_pos: list,
-                                    smoothed: np.ndarray):
+    def _detect_descending_triangle(
+        self, swings: dict, x_pos: list, smoothed: np.ndarray
+    ):
         """Detect Descending Triangle (bearish continuation)."""
         highs = swings["highs"]
         lows = swings["lows"]
@@ -409,32 +492,45 @@ class PatternDetector:
                 if len(high_vals) >= 2:
                     high_slope = np.polyfit(range(len(high_vals)), high_vals, 1)[0]
                     if high_slope < 0:
-                        quality = self._quality_score(smoothed, lows[0]["idx"], lows[-1]["idx"])
+                        quality = self._quality_score(
+                            smoothed, lows[0]["idx"], lows[-1]["idx"]
+                        )
                         confidence = self._calculate_confidence(
                             base=0.65, symmetry=1.0, trend_align=1.1, quality=quality
                         )
 
-                        self.detected_patterns.append({
-                            "name": "Descending Triangle",
-                            "type": "BEARISH_CONTINUATION",
-                            "confidence": confidence,
-                            "quality_score": round(quality, 3),
-                            "description": "Flat support with descending highs. Expect breakdown.",
-                            "key_points": {
-                                "support": float(np.mean(low_vals)),
-                                "descending_highs": high_vals
-                            },
-                            "x_range": (
-                                x_pos[lows[0]["idx"]] if lows[0]["idx"] < len(x_pos) else 0,
-                                x_pos[lows[-1]["idx"]] if lows[-1]["idx"] < len(x_pos) else 0
-                            ),
-                            "target_direction": "DOWN"
-                        })
+                        self.detected_patterns.append(
+                            {
+                                "name": "Descending Triangle",
+                                "type": "BEARISH_CONTINUATION",
+                                "confidence": confidence,
+                                "quality_score": round(quality, 3),
+                                "description": "Flat support with descending highs. Expect breakdown.",
+                                "key_points": {
+                                    "support": float(np.mean(low_vals)),
+                                    "descending_highs": high_vals,
+                                },
+                                "x_range": (
+                                    (
+                                        x_pos[lows[0]["idx"]]
+                                        if lows[0]["idx"] < len(x_pos)
+                                        else 0
+                                    ),
+                                    (
+                                        x_pos[lows[-1]["idx"]]
+                                        if lows[-1]["idx"] < len(x_pos)
+                                        else 0
+                                    ),
+                                ),
+                                "target_direction": "DOWN",
+                            }
+                        )
 
     # ── Pattern: Symmetric Triangle ──────────────────────────────────
 
-    def _detect_symmetric_triangle(self, swings: dict, x_pos: list,
-                                   smoothed: np.ndarray):
+    def _detect_symmetric_triangle(
+        self, swings: dict, x_pos: list, smoothed: np.ndarray
+    ):
         """Detect Symmetric Triangle (continuation, direction depends on breakout)."""
         highs = swings["highs"]
         lows = swings["lows"]
@@ -449,30 +545,41 @@ class PatternDetector:
             low_slope = np.polyfit(range(len(low_vals)), low_vals, 1)[0]
 
             if high_slope < -0.01 and low_slope > 0.01:
-                quality = self._quality_score(smoothed, highs[0]["idx"], highs[-1]["idx"])
+                quality = self._quality_score(
+                    smoothed, highs[0]["idx"], highs[-1]["idx"]
+                )
                 confidence = self._calculate_confidence(base=0.60, quality=quality)
 
-                self.detected_patterns.append({
-                    "name": "Symmetric Triangle",
-                    "type": "CONTINUATION",
-                    "confidence": confidence,
-                    "quality_score": round(quality, 3),
-                    "description": "Converging trend lines suggest a breakout is imminent. Watch for volume confirmation.",
-                    "key_points": {
-                        "descending_highs": high_vals,
-                        "rising_lows": low_vals
-                    },
-                    "x_range": (
-                        x_pos[highs[0]["idx"]] if highs[0]["idx"] < len(x_pos) else 0,
-                        x_pos[highs[-1]["idx"]] if highs[-1]["idx"] < len(x_pos) else 0
-                    ),
-                    "target_direction": "PENDING"
-                })
+                self.detected_patterns.append(
+                    {
+                        "name": "Symmetric Triangle",
+                        "type": "CONTINUATION",
+                        "confidence": confidence,
+                        "quality_score": round(quality, 3),
+                        "description": "Converging trend lines suggest a breakout is imminent. Watch for volume confirmation.",
+                        "key_points": {
+                            "descending_highs": high_vals,
+                            "rising_lows": low_vals,
+                        },
+                        "x_range": (
+                            (
+                                x_pos[highs[0]["idx"]]
+                                if highs[0]["idx"] < len(x_pos)
+                                else 0
+                            ),
+                            (
+                                x_pos[highs[-1]["idx"]]
+                                if highs[-1]["idx"] < len(x_pos)
+                                else 0
+                            ),
+                        ),
+                        "target_direction": "PENDING",
+                    }
+                )
 
     # ── Pattern: Rising Wedge ────────────────────────────────────────
 
-    def _detect_rising_wedge(self, swings: dict, x_pos: list,
-                             smoothed: np.ndarray):
+    def _detect_rising_wedge(self, swings: dict, x_pos: list, smoothed: np.ndarray):
         """Detect Rising Wedge (bearish reversal)."""
         highs = swings["highs"]
         lows = swings["lows"]
@@ -487,30 +594,43 @@ class PatternDetector:
             low_slope = np.polyfit(range(len(low_vals)), low_vals, 1)[0]
 
             if high_slope > 0.01 and low_slope > 0.01 and low_slope > high_slope:
-                quality = self._quality_score(smoothed, highs[0]["idx"], highs[-1]["idx"])
-                confidence = self._calculate_confidence(base=0.65, trend_align=1.05, quality=quality)
+                quality = self._quality_score(
+                    smoothed, highs[0]["idx"], highs[-1]["idx"]
+                )
+                confidence = self._calculate_confidence(
+                    base=0.65, trend_align=1.05, quality=quality
+                )
 
-                self.detected_patterns.append({
-                    "name": "Rising Wedge",
-                    "type": "BEARISH_REVERSAL",
-                    "confidence": confidence,
-                    "quality_score": round(quality, 3),
-                    "description": "Both trend lines rising but converging. Typically breaks downward.",
-                    "key_points": {
-                        "rising_highs": high_vals,
-                        "rising_lows": low_vals
-                    },
-                    "x_range": (
-                        x_pos[highs[0]["idx"]] if highs[0]["idx"] < len(x_pos) else 0,
-                        x_pos[highs[-1]["idx"]] if highs[-1]["idx"] < len(x_pos) else 0
-                    ),
-                    "target_direction": "DOWN"
-                })
+                self.detected_patterns.append(
+                    {
+                        "name": "Rising Wedge",
+                        "type": "BEARISH_REVERSAL",
+                        "confidence": confidence,
+                        "quality_score": round(quality, 3),
+                        "description": "Both trend lines rising but converging. Typically breaks downward.",
+                        "key_points": {
+                            "rising_highs": high_vals,
+                            "rising_lows": low_vals,
+                        },
+                        "x_range": (
+                            (
+                                x_pos[highs[0]["idx"]]
+                                if highs[0]["idx"] < len(x_pos)
+                                else 0
+                            ),
+                            (
+                                x_pos[highs[-1]["idx"]]
+                                if highs[-1]["idx"] < len(x_pos)
+                                else 0
+                            ),
+                        ),
+                        "target_direction": "DOWN",
+                    }
+                )
 
     # ── Pattern: Falling Wedge ───────────────────────────────────────
 
-    def _detect_falling_wedge(self, swings: dict, x_pos: list,
-                              smoothed: np.ndarray):
+    def _detect_falling_wedge(self, swings: dict, x_pos: list, smoothed: np.ndarray):
         """Detect Falling Wedge (bullish reversal)."""
         highs = swings["highs"]
         lows = swings["lows"]
@@ -525,30 +645,43 @@ class PatternDetector:
             low_slope = np.polyfit(range(len(low_vals)), low_vals, 1)[0]
 
             if high_slope < -0.01 and low_slope < -0.01 and high_slope < low_slope:
-                quality = self._quality_score(smoothed, highs[0]["idx"], highs[-1]["idx"])
-                confidence = self._calculate_confidence(base=0.65, trend_align=1.05, quality=quality)
+                quality = self._quality_score(
+                    smoothed, highs[0]["idx"], highs[-1]["idx"]
+                )
+                confidence = self._calculate_confidence(
+                    base=0.65, trend_align=1.05, quality=quality
+                )
 
-                self.detected_patterns.append({
-                    "name": "Falling Wedge",
-                    "type": "BULLISH_REVERSAL",
-                    "confidence": confidence,
-                    "quality_score": round(quality, 3),
-                    "description": "Both trend lines falling but converging. Typically breaks upward.",
-                    "key_points": {
-                        "falling_highs": high_vals,
-                        "falling_lows": low_vals
-                    },
-                    "x_range": (
-                        x_pos[highs[0]["idx"]] if highs[0]["idx"] < len(x_pos) else 0,
-                        x_pos[highs[-1]["idx"]] if highs[-1]["idx"] < len(x_pos) else 0
-                    ),
-                    "target_direction": "UP"
-                })
+                self.detected_patterns.append(
+                    {
+                        "name": "Falling Wedge",
+                        "type": "BULLISH_REVERSAL",
+                        "confidence": confidence,
+                        "quality_score": round(quality, 3),
+                        "description": "Both trend lines falling but converging. Typically breaks upward.",
+                        "key_points": {
+                            "falling_highs": high_vals,
+                            "falling_lows": low_vals,
+                        },
+                        "x_range": (
+                            (
+                                x_pos[highs[0]["idx"]]
+                                if highs[0]["idx"] < len(x_pos)
+                                else 0
+                            ),
+                            (
+                                x_pos[highs[-1]["idx"]]
+                                if highs[-1]["idx"] < len(x_pos)
+                                else 0
+                            ),
+                        ),
+                        "target_direction": "UP",
+                    }
+                )
 
     # ── Pattern: Bull Flag ───────────────────────────────────────────
 
-    def _detect_bull_flag(self, swings: dict, x_pos: list,
-                          smoothed: np.ndarray):
+    def _detect_bull_flag(self, swings: dict, x_pos: list, smoothed: np.ndarray):
         """Detect Bull Flag (bullish continuation)."""
         n = len(smoothed)
         if n < 12:
@@ -574,28 +707,32 @@ class PatternDetector:
                 base=0.60 + pole_strength * 0.15,
                 symmetry=1.0,
                 trend_align=1.1,
-                quality=quality
+                quality=quality,
             )
 
-            self.detected_patterns.append({
-                "name": "Bull Flag",
-                "type": "BULLISH_CONTINUATION",
-                "confidence": confidence,
-                "quality_score": round(quality, 3),
-                "description": "Strong upward move followed by slight downward consolidation. Expect continuation upward.",
-                "key_points": {
-                    "pole_rise": float(rise),
-                    "flag_slope": float(flag_slope),
-                    "pole_strength": round(float(pole_strength), 3)
-                },
-                "x_range": (x_pos[0] if x_pos else 0, x_pos[flag_end] if flag_end < len(x_pos) else 0),
-                "target_direction": "UP"
-            })
+            self.detected_patterns.append(
+                {
+                    "name": "Bull Flag",
+                    "type": "BULLISH_CONTINUATION",
+                    "confidence": confidence,
+                    "quality_score": round(quality, 3),
+                    "description": "Strong upward move followed by slight downward consolidation. Expect continuation upward.",
+                    "key_points": {
+                        "pole_rise": float(rise),
+                        "flag_slope": float(flag_slope),
+                        "pole_strength": round(float(pole_strength), 3),
+                    },
+                    "x_range": (
+                        x_pos[0] if x_pos else 0,
+                        x_pos[flag_end] if flag_end < len(x_pos) else 0,
+                    ),
+                    "target_direction": "UP",
+                }
+            )
 
     # ── Pattern: Bear Flag ───────────────────────────────────────────
 
-    def _detect_bear_flag(self, swings: dict, x_pos: list,
-                          smoothed: np.ndarray):
+    def _detect_bear_flag(self, swings: dict, x_pos: list, smoothed: np.ndarray):
         """Detect Bear Flag (bearish continuation)."""
         n = len(smoothed)
         if n < 12:
@@ -621,28 +758,32 @@ class PatternDetector:
                 base=0.60 + pole_strength * 0.15,
                 symmetry=1.0,
                 trend_align=1.1,
-                quality=quality
+                quality=quality,
             )
 
-            self.detected_patterns.append({
-                "name": "Bear Flag",
-                "type": "BEARISH_CONTINUATION",
-                "confidence": confidence,
-                "quality_score": round(quality, 3),
-                "description": "Strong downward move followed by slight upward consolidation. Expect continuation downward.",
-                "key_points": {
-                    "pole_drop": float(drop),
-                    "flag_slope": float(flag_slope),
-                    "pole_strength": round(float(pole_strength), 3)
-                },
-                "x_range": (x_pos[0] if x_pos else 0, x_pos[flag_end] if flag_end < len(x_pos) else 0),
-                "target_direction": "DOWN"
-            })
+            self.detected_patterns.append(
+                {
+                    "name": "Bear Flag",
+                    "type": "BEARISH_CONTINUATION",
+                    "confidence": confidence,
+                    "quality_score": round(quality, 3),
+                    "description": "Strong downward move followed by slight upward consolidation. Expect continuation downward.",
+                    "key_points": {
+                        "pole_drop": float(drop),
+                        "flag_slope": float(flag_slope),
+                        "pole_strength": round(float(pole_strength), 3),
+                    },
+                    "x_range": (
+                        x_pos[0] if x_pos else 0,
+                        x_pos[flag_end] if flag_end < len(x_pos) else 0,
+                    ),
+                    "target_direction": "DOWN",
+                }
+            )
 
     # ── Pattern: Channel ─────────────────────────────────────────────
 
-    def _detect_channel(self, swings: dict, x_pos: list,
-                        smoothed: np.ndarray):
+    def _detect_channel(self, swings: dict, x_pos: list, smoothed: np.ndarray):
         """Detect price channel (rising or falling)."""
         highs = swings["highs"]
         lows = swings["lows"]
@@ -671,29 +812,37 @@ class PatternDetector:
                 quality = self._quality_score(smoothed, high_xs[0], high_xs[-1])
 
                 confidence = self._calculate_confidence(
-                    base=0.55,
-                    symmetry=parallelism,
-                    quality=quality
+                    base=0.55, symmetry=parallelism, quality=quality
                 )
 
-                self.detected_patterns.append({
-                    "name": f"{direction} Channel",
-                    "type": f"{bias}_CONTINUATION",
-                    "confidence": confidence,
-                    "symmetry": round(parallelism, 3),
-                    "quality_score": round(quality, 3),
-                    "description": f"Parallel {direction.lower()} trend lines form a channel. Trade within channel or wait for breakout.",
-                    "key_points": {
-                        "upper_slope": float(high_slope),
-                        "lower_slope": float(low_slope),
-                        "channel_width": channel_width
-                    },
-                    "x_range": (
-                        x_pos[highs[0]["idx"]] if highs[0]["idx"] < len(x_pos) else 0,
-                        x_pos[highs[-1]["idx"]] if highs[-1]["idx"] < len(x_pos) else 0
-                    ),
-                    "target_direction": "UP" if avg_slope > 0 else "DOWN"
-                })
+                self.detected_patterns.append(
+                    {
+                        "name": f"{direction} Channel",
+                        "type": f"{bias}_CONTINUATION",
+                        "confidence": confidence,
+                        "symmetry": round(parallelism, 3),
+                        "quality_score": round(quality, 3),
+                        "description": f"Parallel {direction.lower()} trend lines form a channel. Trade within channel or wait for breakout.",
+                        "key_points": {
+                            "upper_slope": float(high_slope),
+                            "lower_slope": float(low_slope),
+                            "channel_width": channel_width,
+                        },
+                        "x_range": (
+                            (
+                                x_pos[highs[0]["idx"]]
+                                if highs[0]["idx"] < len(x_pos)
+                                else 0
+                            ),
+                            (
+                                x_pos[highs[-1]["idx"]]
+                                if highs[-1]["idx"] < len(x_pos)
+                                else 0
+                            ),
+                        ),
+                        "target_direction": "UP" if avg_slope > 0 else "DOWN",
+                    }
+                )
 
     # ── Pattern: Breakout ────────────────────────────────────────────
 
@@ -703,7 +852,7 @@ class PatternDetector:
             return
 
         n = len(smoothed)
-        recent = smoothed[-n // 4:]
+        recent = smoothed[-n // 4 :]
 
         if len(recent) < 3:
             return
@@ -713,39 +862,48 @@ class PatternDetector:
         near_low = smoothed[-1] < np.percentile(smoothed, 15)
 
         if near_high and recent_slope > 0:
-            self.detected_patterns.append({
-                "name": "Bullish Breakout Attempt",
-                "type": "BREAKOUT",
-                "confidence": 0.55,
-                "quality_score": 0.7,
-                "description": "Price approaching resistance with upward momentum. Watch for volume and candle confirmation.",
-                "key_points": {
-                    "resistance_level": float(np.percentile(smoothed, 95)),
-                    "current_momentum": float(recent_slope)
-                },
-                "x_range": (x_pos[-n // 4] if len(x_pos) > n // 4 else 0, x_pos[-1] if x_pos else 0),
-                "target_direction": "UP"
-            })
+            self.detected_patterns.append(
+                {
+                    "name": "Bullish Breakout Attempt",
+                    "type": "BREAKOUT",
+                    "confidence": 0.55,
+                    "quality_score": 0.7,
+                    "description": "Price approaching resistance with upward momentum. Watch for volume and candle confirmation.",
+                    "key_points": {
+                        "resistance_level": float(np.percentile(smoothed, 95)),
+                        "current_momentum": float(recent_slope),
+                    },
+                    "x_range": (
+                        x_pos[-n // 4] if len(x_pos) > n // 4 else 0,
+                        x_pos[-1] if x_pos else 0,
+                    ),
+                    "target_direction": "UP",
+                }
+            )
 
         if near_low and recent_slope < 0:
-            self.detected_patterns.append({
-                "name": "Bearish Breakdown Attempt",
-                "type": "BREAKDOWN",
-                "confidence": 0.55,
-                "quality_score": 0.7,
-                "description": "Price approaching support with downward momentum. Watch for breakdown confirmation.",
-                "key_points": {
-                    "support_level": float(np.percentile(smoothed, 5)),
-                    "current_momentum": float(recent_slope)
-                },
-                "x_range": (x_pos[-n // 4] if len(x_pos) > n // 4 else 0, x_pos[-1] if x_pos else 0),
-                "target_direction": "DOWN"
-            })
+            self.detected_patterns.append(
+                {
+                    "name": "Bearish Breakdown Attempt",
+                    "type": "BREAKDOWN",
+                    "confidence": 0.55,
+                    "quality_score": 0.7,
+                    "description": "Price approaching support with downward momentum. Watch for breakdown confirmation.",
+                    "key_points": {
+                        "support_level": float(np.percentile(smoothed, 5)),
+                        "current_momentum": float(recent_slope),
+                    },
+                    "x_range": (
+                        x_pos[-n // 4] if len(x_pos) > n // 4 else 0,
+                        x_pos[-1] if x_pos else 0,
+                    ),
+                    "target_direction": "DOWN",
+                }
+            )
 
     # ── Pattern: Cup and Handle ──────────────────────────────────────
 
-    def _detect_cup_and_handle(self, swings: dict, x_pos: list,
-                               smoothed: np.ndarray):
+    def _detect_cup_and_handle(self, swings: dict, x_pos: list, smoothed: np.ndarray):
         """Detect Cup and Handle pattern (bullish continuation).
 
         The cup is a U-shaped price decline and recovery. The handle is a
@@ -779,8 +937,11 @@ class PatternDetector:
                 continue
 
             # Check for U-shape: lows between the rims should form a bowl
-            cup_lows = [l for l in lows
-                        if left_rim["idx"] <= l["idx"] <= right_rim_candidate["idx"]]
+            cup_lows = [
+                l
+                for l in lows
+                if left_rim["idx"] <= l["idx"] <= right_rim_candidate["idx"]
+            ]
             if len(cup_lows) < 1:
                 continue
 
@@ -806,66 +967,88 @@ class PatternDetector:
                 continue
 
             # Symmetry: left half depth vs right half depth
-            left_half_lows = [l for l in cup_lows
-                              if l["idx"] <= cup_bottom["idx"]]
-            right_half_lows = [l for l in cup_lows
-                               if l["idx"] > cup_bottom["idx"]]
+            left_half_lows = [l for l in cup_lows if l["idx"] <= cup_bottom["idx"]]
+            right_half_lows = [l for l in cup_lows if l["idx"] > cup_bottom["idx"]]
 
-            left_depth = rim_avg - min(l["val"] for l in left_half_lows) if left_half_lows else cup_depth
-            right_depth = rim_avg - min(l["val"] for l in right_half_lows) if right_half_lows else cup_depth
+            left_depth = (
+                rim_avg - min(l["val"] for l in left_half_lows)
+                if left_half_lows
+                else cup_depth
+            )
+            right_depth = (
+                rim_avg - min(l["val"] for l in right_half_lows)
+                if right_half_lows
+                else cup_depth
+            )
             symmetry = self._symmetry_score(left_depth, right_depth, cup_depth)
 
             # Check for handle: slight pullback after right rim
             handle_found = False
             handle_slope = 0.0
-            handle_lows = [l for l in lows
-                           if l["idx"] > right_rim_candidate["idx"]]
+            handle_lows = [l for l in lows if l["idx"] > right_rim_candidate["idx"]]
 
             if handle_lows:
                 # Handle should be a shallow downward drift within 20% of cup span
                 handle_end_idx = min(
-                    right_rim_candidate["idx"] + int(cup_span * 0.3),
-                    len(smoothed) - 1
+                    right_rim_candidate["idx"] + int(cup_span * 0.3), len(smoothed) - 1
                 )
-                handle_segment = smoothed[right_rim_candidate["idx"]:handle_end_idx + 1]
+                handle_segment = smoothed[
+                    right_rim_candidate["idx"] : handle_end_idx + 1
+                ]
                 if len(handle_segment) >= 3:
-                    handle_slope = np.polyfit(range(len(handle_segment)), handle_segment, 1)[0]
+                    handle_slope = np.polyfit(
+                        range(len(handle_segment)), handle_segment, 1
+                    )[0]
                     # Handle should drift slightly downward (or sideways)
                     if -0.03 <= handle_slope <= 0.005:
                         handle_found = True
 
             # Compute confidence
-            quality = self._quality_score(smoothed, left_rim["idx"],
-                                          right_rim_candidate["idx"])
+            quality = self._quality_score(
+                smoothed, left_rim["idx"], right_rim_candidate["idx"]
+            )
             handle_bonus = 1.1 if handle_found else 0.9
 
             confidence = self._calculate_confidence(
-                base=0.60,
-                symmetry=symmetry,
-                trend_align=handle_bonus,
-                quality=quality
+                base=0.60, symmetry=symmetry, trend_align=handle_bonus, quality=quality
             )
 
-            handle_desc = " Handle consolidation confirms bullish setup." if handle_found else " No clear handle detected — watch for pullback entry."
+            handle_desc = (
+                " Handle consolidation confirms bullish setup."
+                if handle_found
+                else " No clear handle detected — watch for pullback entry."
+            )
 
-            self.detected_patterns.append({
-                "name": "Cup and Handle",
-                "type": "BULLISH_CONTINUATION",
-                "confidence": confidence,
-                "symmetry": round(symmetry, 3),
-                "quality_score": round(quality, 3),
-                "has_handle": handle_found,
-                "description": f"U-shaped cup with depth {cup_depth / price_range:.0%} of price range.{handle_desc}",
-                "key_points": {
-                    "left_rim": {"idx": left_rim["idx"], "val": left_rim["val"]},
-                    "cup_bottom": {"idx": cup_bottom["idx"], "val": cup_bottom["val"]},
-                    "right_rim": {"idx": right_rim_candidate["idx"], "val": right_rim_candidate["val"]},
-                    "cup_depth_pct": round(cup_depth / price_range, 3),
-                    "handle_slope": round(float(handle_slope), 4)
-                },
-                "x_range": (
-                    x_pos[left_rim["idx"]] if left_rim["idx"] < len(x_pos) else 0,
-                    x_pos[right_rim_candidate["idx"]] if right_rim_candidate["idx"] < len(x_pos) else 0
-                ),
-                "target_direction": "UP"
-            })
+            self.detected_patterns.append(
+                {
+                    "name": "Cup and Handle",
+                    "type": "BULLISH_CONTINUATION",
+                    "confidence": confidence,
+                    "symmetry": round(symmetry, 3),
+                    "quality_score": round(quality, 3),
+                    "has_handle": handle_found,
+                    "description": f"U-shaped cup with depth {cup_depth / price_range:.0%} of price range.{handle_desc}",
+                    "key_points": {
+                        "left_rim": {"idx": left_rim["idx"], "val": left_rim["val"]},
+                        "cup_bottom": {
+                            "idx": cup_bottom["idx"],
+                            "val": cup_bottom["val"],
+                        },
+                        "right_rim": {
+                            "idx": right_rim_candidate["idx"],
+                            "val": right_rim_candidate["val"],
+                        },
+                        "cup_depth_pct": round(cup_depth / price_range, 3),
+                        "handle_slope": round(float(handle_slope), 4),
+                    },
+                    "x_range": (
+                        x_pos[left_rim["idx"]] if left_rim["idx"] < len(x_pos) else 0,
+                        (
+                            x_pos[right_rim_candidate["idx"]]
+                            if right_rim_candidate["idx"] < len(x_pos)
+                            else 0
+                        ),
+                    ),
+                    "target_direction": "UP",
+                }
+            )

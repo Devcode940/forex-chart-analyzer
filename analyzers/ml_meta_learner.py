@@ -8,13 +8,17 @@ Combines ALL ML models into a single master prediction with:
 4. Confidence interval from model disagreement
 """
 
+import warnings
+
 import numpy as np
-from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier, VotingClassifier
+from sklearn.calibration import CalibratedClassifierCV
+from sklearn.ensemble import (GradientBoostingClassifier,
+                              RandomForestClassifier, VotingClassifier)
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
-from sklearn.calibration import CalibratedClassifierCV
-import warnings
-warnings.filterwarnings('ignore')
+
+warnings.filterwarnings("ignore")
+
 
 class MetaLearner:
     """
@@ -37,7 +41,7 @@ class MetaLearner:
         calibration_result: dict,
         statistical_result: dict,
         walk_forward_result: dict,
-        confluence_results: dict
+        confluence_results: dict,
     ) -> dict:
         """
         Combine ALL model outputs into a single master prediction.
@@ -70,9 +74,19 @@ class MetaLearner:
                 sv_prob = 0.40
 
             # Direction from votes
-            bull_votes = sum(1 for v in sv.get("method_votes", []) if "BULLISH" in v.get("verdict", "").upper() or v.get("prob", 0) > 0.5)
-            bear_votes = sum(1 for v in sv.get("method_votes", []) if v.get("prob", 0) < 0.5)
-            sv_dir = "BULLISH" if bull_votes > bear_votes else "BEARISH" if bear_votes > bull_votes else "NEUTRAL"
+            bull_votes = sum(
+                1
+                for v in sv.get("method_votes", [])
+                if "BULLISH" in v.get("verdict", "").upper() or v.get("prob", 0) > 0.5
+            )
+            bear_votes = sum(
+                1 for v in sv.get("method_votes", []) if v.get("prob", 0) < 0.5
+            )
+            sv_dir = (
+                "BULLISH"
+                if bull_votes > bear_votes
+                else "BEARISH" if bear_votes > bull_votes else "NEUTRAL"
+            )
 
             predictions["statistical"] = {
                 "prob": sv_prob if sv_dir != "BEARISH" else 1 - sv_prob,
@@ -86,7 +100,9 @@ class MetaLearner:
             cal = calibration_result["main_confluence"]
             predictions["calibration"] = {
                 "prob": cal.get("best_calibrated", 0.5),
-                "direction": "BULLISH" if cal.get("best_calibrated", 0.5) > 0.5 else "BEARISH",
+                "direction": (
+                    "BULLISH" if cal.get("best_calibrated", 0.5) > 0.5 else "BEARISH"
+                ),
                 "weight": 0.20,
                 "source": "Platt Scaling + Isotonic Regression",
             }
@@ -97,7 +113,9 @@ class MetaLearner:
             risk_mult = anomaly_result.get("risk_multiplier", 1.0)
 
             # Anomaly adjusts confidence DOWN
-            anom_prob = 0.5 * risk_mult + 0.25  # Scales from 0.375 (extreme) to 0.75 (normal)
+            anom_prob = (
+                0.5 * risk_mult + 0.25
+            )  # Scales from 0.375 (extreme) to 0.75 (normal)
             if anomaly_result.get("anomaly_level") == "NORMAL":
                 anom_dir = "NEUTRAL"  # Don't add directional bias, just confidence
                 anom_prob = 0.6
@@ -136,7 +154,9 @@ class MetaLearner:
 
         # Weighted probability
         total_weight = sum(p["weight"] for p in predictions.values())
-        weighted_prob = sum(p["prob"] * p["weight"] for p in predictions.values()) / total_weight
+        weighted_prob = (
+            sum(p["prob"] * p["weight"] for p in predictions.values()) / total_weight
+        )
 
         # Anomaly risk adjustment
         if anomaly_result:
@@ -145,7 +165,11 @@ class MetaLearner:
             weighted_prob = 0.5 + (weighted_prob - 0.5) * risk_mult
 
         # Direction
-        direction = "BULLISH" if weighted_prob > 0.55 else "BEARISH" if weighted_prob < 0.45 else "NEUTRAL"
+        direction = (
+            "BULLISH"
+            if weighted_prob > 0.55
+            else "BEARISH" if weighted_prob < 0.45 else "NEUTRAL"
+        )
         confidence = abs(weighted_prob - 0.5) * 2
 
         # Model agreement
@@ -257,6 +281,9 @@ class MetaLearner:
 
         return {
             "recommended_risk_pct": round(risk, 2),
-            "position_strength": "FULL" if risk >= 0.85 else "REDUCED" if risk >= 0.5 else "SMALL" if risk >= 0.25 else "NONE",
+            "position_strength": (
+                "FULL"
+                if risk >= 0.85
+                else "REDUCED" if risk >= 0.5 else "SMALL" if risk >= 0.25 else "NONE"
+            ),
         }
-

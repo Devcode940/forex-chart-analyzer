@@ -10,6 +10,7 @@ Hidden Divergence = Trend Continuation Signal
 import numpy as np
 from scipy.signal import argrelextrema
 
+
 class DivergenceDetector:
     """
     Detects divergences by comparing price swing structure
@@ -47,16 +48,24 @@ class DivergenceDetector:
         mom_lows_idx = argrelextrema(momentum, np.less, order=order)[0]
 
         # Detect Regular Bearish Divergence (price HH + momentum LH)
-        self._detect_regular_bearish(smoothed, momentum, price_highs_idx, mom_highs_idx, x_positions)
+        self._detect_regular_bearish(
+            smoothed, momentum, price_highs_idx, mom_highs_idx, x_positions
+        )
 
         # Detect Regular Bullish Divergence (price LL + momentum HL)
-        self._detect_regular_bullish(smoothed, momentum, price_lows_idx, mom_lows_idx, x_positions)
+        self._detect_regular_bullish(
+            smoothed, momentum, price_lows_idx, mom_lows_idx, x_positions
+        )
 
         # Detect Hidden Bullish Divergence (price HL + momentum LL)
-        self._detect_hidden_bullish(smoothed, momentum, price_lows_idx, mom_lows_idx, x_positions)
+        self._detect_hidden_bullish(
+            smoothed, momentum, price_lows_idx, mom_lows_idx, x_positions
+        )
 
         # Detect Hidden Bearish Divergence (price LH + momentum HH)
-        self._detect_hidden_bearish(smoothed, momentum, price_highs_idx, mom_highs_idx, x_positions)
+        self._detect_hidden_bearish(
+            smoothed, momentum, price_highs_idx, mom_highs_idx, x_positions
+        )
 
         self.divergences.sort(key=lambda d: d["confidence"], reverse=True)
         return self.divergences
@@ -69,7 +78,9 @@ class DivergenceDetector:
                 roc[i] = (data[i] - data[i - period]) / abs(data[i - period]) * 100
         return roc
 
-    def _calc_momentum_oscillator(self, data: np.ndarray, period: int = 14) -> np.ndarray:
+    def _calc_momentum_oscillator(
+        self, data: np.ndarray, period: int = 14
+    ) -> np.ndarray:
         """
         Calculate a momentum oscillator similar to RSI.
         Uses up/down moves to create a bounded 0-100 oscillator.
@@ -125,32 +136,40 @@ class DivergenceDetector:
                     # Momentum: lower high
                     if m_idx2 < len(momentum) and m_idx1 < len(momentum):
                         if momentum[m_idx2] < momentum[m_idx1]:
-                            price_diff = (price[p_idx2] - price[p_idx1]) / abs(price[p_idx1]) * 100
+                            price_diff = (
+                                (price[p_idx2] - price[p_idx1])
+                                / abs(price[p_idx1])
+                                * 100
+                            )
                             mom_diff = momentum[m_idx1] - momentum[m_idx2]
 
-                            confidence = min(0.9, 0.5 + abs(price_diff) * 0.05 + mom_diff * 0.01)
+                            confidence = min(
+                                0.9, 0.5 + abs(price_diff) * 0.05 + mom_diff * 0.01
+                            )
 
-                            self.divergences.append({
-                                "name": "Regular Bearish Divergence",
-                                "type": "BEARISH_REVERSAL",
-                                "signal": "SELL",
-                                "confidence": confidence,
-                                "description": (
-                                    f"Price made higher high ({price[p_idx1]:.1f} → {price[p_idx2]:.1f}) "
-                                    f"but momentum made lower high ({momentum[m_idx1]:.1f} → {momentum[m_idx2]:.1f}). "
-                                    f"Upward momentum is fading — bearish reversal likely."
-                                ),
-                                "implication": (
-                                    "Enter short on confirmation (bearish candle close below recent swing low). "
-                                    "SL above the divergence high. TP at next support or Fib level."
-                                ),
-                                "price_high1_idx": int(p_idx1),
-                                "price_high2_idx": int(p_idx2),
-                                "x_range": (
-                                    x_pos[p_idx1] if p_idx1 < len(x_pos) else 0,
-                                    x_pos[p_idx2] if p_idx2 < len(x_pos) else 0
-                                )
-                            })
+                            self.divergences.append(
+                                {
+                                    "name": "Regular Bearish Divergence",
+                                    "type": "BEARISH_REVERSAL",
+                                    "signal": "SELL",
+                                    "confidence": confidence,
+                                    "description": (
+                                        f"Price made higher high ({price[p_idx1]:.1f} → {price[p_idx2]:.1f}) "
+                                        f"but momentum made lower high ({momentum[m_idx1]:.1f} → {momentum[m_idx2]:.1f}). "
+                                        f"Upward momentum is fading — bearish reversal likely."
+                                    ),
+                                    "implication": (
+                                        "Enter short on confirmation (bearish candle close below recent swing low). "
+                                        "SL above the divergence high. TP at next support or Fib level."
+                                    ),
+                                    "price_high1_idx": int(p_idx1),
+                                    "price_high2_idx": int(p_idx2),
+                                    "x_range": (
+                                        x_pos[p_idx1] if p_idx1 < len(x_pos) else 0,
+                                        x_pos[p_idx2] if p_idx2 < len(x_pos) else 0,
+                                    ),
+                                }
+                            )
 
     def _detect_regular_bullish(self, price, momentum, price_lows, mom_lows, x_pos):
         """Regular Bullish: Price makes Lower Low, but momentum makes Higher Low → Reversal UP"""
@@ -177,32 +196,40 @@ class DivergenceDetector:
                     if m_idx2 < len(momentum) and m_idx1 < len(momentum):
                         # Momentum: higher low
                         if momentum[m_idx2] > momentum[m_idx1]:
-                            price_diff = (price[p_idx1] - price[p_idx2]) / abs(price[p_idx1]) * 100
+                            price_diff = (
+                                (price[p_idx1] - price[p_idx2])
+                                / abs(price[p_idx1])
+                                * 100
+                            )
                             mom_diff = momentum[m_idx2] - momentum[m_idx1]
 
-                            confidence = min(0.9, 0.5 + abs(price_diff) * 0.05 + mom_diff * 0.01)
+                            confidence = min(
+                                0.9, 0.5 + abs(price_diff) * 0.05 + mom_diff * 0.01
+                            )
 
-                            self.divergences.append({
-                                "name": "Regular Bullish Divergence",
-                                "type": "BULLISH_REVERSAL",
-                                "signal": "BUY",
-                                "confidence": confidence,
-                                "description": (
-                                    f"Price made lower low ({price[p_idx1]:.1f} → {price[p_idx2]:.1f}) "
-                                    f"but momentum made higher low ({momentum[m_idx1]:.1f} → {momentum[m_idx2]:.1f}). "
-                                    f"Selling pressure is fading — bullish reversal likely."
-                                ),
-                                "implication": (
-                                    "Enter long on confirmation (bullish candle close above recent swing high). "
-                                    "SL below the divergence low. TP at next resistance or Fib level."
-                                ),
-                                "price_low1_idx": int(p_idx1),
-                                "price_low2_idx": int(p_idx2),
-                                "x_range": (
-                                    x_pos[p_idx1] if p_idx1 < len(x_pos) else 0,
-                                    x_pos[p_idx2] if p_idx2 < len(x_pos) else 0
-                                )
-                            })
+                            self.divergences.append(
+                                {
+                                    "name": "Regular Bullish Divergence",
+                                    "type": "BULLISH_REVERSAL",
+                                    "signal": "BUY",
+                                    "confidence": confidence,
+                                    "description": (
+                                        f"Price made lower low ({price[p_idx1]:.1f} → {price[p_idx2]:.1f}) "
+                                        f"but momentum made higher low ({momentum[m_idx1]:.1f} → {momentum[m_idx2]:.1f}). "
+                                        f"Selling pressure is fading — bullish reversal likely."
+                                    ),
+                                    "implication": (
+                                        "Enter long on confirmation (bullish candle close above recent swing high). "
+                                        "SL below the divergence low. TP at next resistance or Fib level."
+                                    ),
+                                    "price_low1_idx": int(p_idx1),
+                                    "price_low2_idx": int(p_idx2),
+                                    "x_range": (
+                                        x_pos[p_idx1] if p_idx1 < len(x_pos) else 0,
+                                        x_pos[p_idx2] if p_idx2 < len(x_pos) else 0,
+                                    ),
+                                }
+                            )
 
     def _detect_hidden_bullish(self, price, momentum, price_lows, mom_lows, x_pos):
         """Hidden Bullish: Price makes Higher Low, momentum makes Lower Low → Continuation UP"""
@@ -230,26 +257,28 @@ class DivergenceDetector:
                         if momentum[m_idx2] < momentum[m_idx1]:
                             confidence = 0.65
 
-                            self.divergences.append({
-                                "name": "Hidden Bullish Divergence",
-                                "type": "BULLISH_CONTINUATION",
-                                "signal": "BUY",
-                                "confidence": confidence,
-                                "description": (
-                                    f"Price made higher low but momentum made lower low. "
-                                    f"This is a hidden divergence — trend is still strong, expect continuation UP."
-                                ),
-                                "implication": (
-                                    "Buy the dip. SL below the higher low. "
-                                    "This confirms the uptrend is intact."
-                                ),
-                                "price_low1_idx": int(p_idx1),
-                                "price_low2_idx": int(p_idx2),
-                                "x_range": (
-                                    x_pos[p_idx1] if p_idx1 < len(x_pos) else 0,
-                                    x_pos[p_idx2] if p_idx2 < len(x_pos) else 0
-                                )
-                            })
+                            self.divergences.append(
+                                {
+                                    "name": "Hidden Bullish Divergence",
+                                    "type": "BULLISH_CONTINUATION",
+                                    "signal": "BUY",
+                                    "confidence": confidence,
+                                    "description": (
+                                        f"Price made higher low but momentum made lower low. "
+                                        f"This is a hidden divergence — trend is still strong, expect continuation UP."
+                                    ),
+                                    "implication": (
+                                        "Buy the dip. SL below the higher low. "
+                                        "This confirms the uptrend is intact."
+                                    ),
+                                    "price_low1_idx": int(p_idx1),
+                                    "price_low2_idx": int(p_idx2),
+                                    "x_range": (
+                                        x_pos[p_idx1] if p_idx1 < len(x_pos) else 0,
+                                        x_pos[p_idx2] if p_idx2 < len(x_pos) else 0,
+                                    ),
+                                }
+                            )
 
     def _detect_hidden_bearish(self, price, momentum, price_highs, mom_highs, x_pos):
         """Hidden Bearish: Price makes Lower High, momentum makes Higher High → Continuation DOWN"""
@@ -277,24 +306,25 @@ class DivergenceDetector:
                         if momentum[m_idx2] > momentum[m_idx1]:
                             confidence = 0.65
 
-                            self.divergences.append({
-                                "name": "Hidden Bearish Divergence",
-                                "type": "BEARISH_CONTINUATION",
-                                "signal": "SELL",
-                                "confidence": confidence,
-                                "description": (
-                                    f"Price made lower high but momentum made higher high. "
-                                    f"This is a hidden divergence — downtrend is still strong, expect continuation DOWN."
-                                ),
-                                "implication": (
-                                    "Sell the bounce. SL above the lower high. "
-                                    "This confirms the downtrend is intact."
-                                ),
-                                "price_high1_idx": int(p_idx1),
-                                "price_high2_idx": int(p_idx2),
-                                "x_range": (
-                                    x_pos[p_idx1] if p_idx1 < len(x_pos) else 0,
-                                    x_pos[p_idx2] if p_idx2 < len(x_pos) else 0
-                                )
-                            })
-
+                            self.divergences.append(
+                                {
+                                    "name": "Hidden Bearish Divergence",
+                                    "type": "BEARISH_CONTINUATION",
+                                    "signal": "SELL",
+                                    "confidence": confidence,
+                                    "description": (
+                                        f"Price made lower high but momentum made higher high. "
+                                        f"This is a hidden divergence — downtrend is still strong, expect continuation DOWN."
+                                    ),
+                                    "implication": (
+                                        "Sell the bounce. SL above the lower high. "
+                                        "This confirms the downtrend is intact."
+                                    ),
+                                    "price_high1_idx": int(p_idx1),
+                                    "price_high2_idx": int(p_idx2),
+                                    "x_range": (
+                                        x_pos[p_idx1] if p_idx1 < len(x_pos) else 0,
+                                        x_pos[p_idx2] if p_idx2 < len(x_pos) else 0,
+                                    ),
+                                }
+                            )

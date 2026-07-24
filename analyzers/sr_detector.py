@@ -4,9 +4,10 @@ Identifies key support and resistance zones from price data.
 """
 
 import numpy as np
-from scipy.signal import argrelextrema
 from scipy.ndimage import gaussian_filter1d
+from scipy.signal import argrelextrema
 from sklearn.cluster import DBSCAN
+
 
 class SRDetector:
     """Detects Support and Resistance levels from chart data."""
@@ -34,8 +35,14 @@ class SRDetector:
         # Method 3: Volume-based (approximation using price density)
         density_sr = self._density_based_detection(smoothed)
 
-        all_supports = swing_sr["supports"] + cluster_sr["supports"] + density_sr["supports"]
-        all_resistances = swing_sr["resistances"] + cluster_sr["resistances"] + density_sr["resistances"]
+        all_supports = (
+            swing_sr["supports"] + cluster_sr["supports"] + density_sr["supports"]
+        )
+        all_resistances = (
+            swing_sr["resistances"]
+            + cluster_sr["resistances"]
+            + density_sr["resistances"]
+        )
 
         # Consolidate nearby levels
         self.support_levels = self._consolidate_levels(all_supports)
@@ -46,28 +53,32 @@ class SRDetector:
 
         support_with_coords = []
         for sl in self.support_levels:
-            support_with_coords.append({
-                "price_level": sl["level"],
-                "strength": sl["strength"],
-                "touches": sl["touches"],
-                "image_y": int(image_height - sl["level"]),
-                "type": "SUPPORT"
-            })
+            support_with_coords.append(
+                {
+                    "price_level": sl["level"],
+                    "strength": sl["strength"],
+                    "touches": sl["touches"],
+                    "image_y": int(image_height - sl["level"]),
+                    "type": "SUPPORT",
+                }
+            )
 
         resistance_with_coords = []
         for rl in self.resistance_levels:
-            resistance_with_coords.append({
-                "price_level": rl["level"],
-                "strength": rl["strength"],
-                "touches": rl["touches"],
-                "image_y": int(image_height - rl["level"]),
-                "type": "RESISTANCE"
-            })
+            resistance_with_coords.append(
+                {
+                    "price_level": rl["level"],
+                    "strength": rl["strength"],
+                    "touches": rl["touches"],
+                    "image_y": int(image_height - rl["level"]),
+                    "type": "RESISTANCE",
+                }
+            )
 
         return {
             "support": support_with_coords,
             "resistance": resistance_with_coords,
-            "key_zones": key_zones
+            "key_zones": key_zones,
         }
 
     def _swing_based_detection(self, smoothed: np.ndarray, x_positions: list) -> dict:
@@ -77,8 +88,14 @@ class SRDetector:
         maxima_idx = argrelextrema(smoothed, np.greater, order=order)[0]
         minima_idx = argrelextrema(smoothed, np.less, order=order)[0]
 
-        supports = [{"level": float(smoothed[i]), "strength": 0.6, "touches": 1} for i in minima_idx]
-        resistances = [{"level": float(smoothed[i]), "strength": 0.6, "touches": 1} for i in maxima_idx]
+        supports = [
+            {"level": float(smoothed[i]), "strength": 0.6, "touches": 1}
+            for i in minima_idx
+        ]
+        resistances = [
+            {"level": float(smoothed[i]), "strength": 0.6, "touches": 1}
+            for i in maxima_idx
+        ]
 
         return {"supports": supports, "resistances": resistances}
 
@@ -95,7 +112,9 @@ class SRDetector:
         normalized = (prices - prices.min()) / price_range
 
         # Cluster
-        clustering = DBSCAN(eps=0.03, min_samples=max(3, len(smoothed) // 20)).fit(normalized)
+        clustering = DBSCAN(eps=0.03, min_samples=max(3, len(smoothed) // 20)).fit(
+            normalized
+        )
         labels = clustering.labels_
 
         supports = []
@@ -109,7 +128,11 @@ class SRDetector:
             cluster_size = len(cluster_points)
             cluster_strength = min(1.0, cluster_size / (len(smoothed) * 0.1))
 
-            level = {"level": cluster_level, "strength": cluster_strength, "touches": cluster_size}
+            level = {
+                "level": cluster_level,
+                "strength": cluster_strength,
+                "touches": cluster_size,
+            }
 
             # Classify as support or resistance based on position relative to median
             median = np.median(smoothed)
@@ -164,14 +187,22 @@ class SRDetector:
         current_group = [levels[0]]
 
         for level in levels[1:]:
-            if abs(level["level"] - current_group[-1]["level"]) / (current_group[-1]["level"] + 1e-6) < tolerance:
+            if (
+                abs(level["level"] - current_group[-1]["level"])
+                / (current_group[-1]["level"] + 1e-6)
+                < tolerance
+            ):
                 current_group.append(level)
             else:
 
                 merged = {
                     "level": float(np.mean([l["level"] for l in current_group])),
-                    "strength": min(1.0, sum(l["strength"] for l in current_group) / len(current_group) + 0.1 * len(current_group)),
-                    "touches": sum(l.get("touches", 1) for l in current_group)
+                    "strength": min(
+                        1.0,
+                        sum(l["strength"] for l in current_group) / len(current_group)
+                        + 0.1 * len(current_group),
+                    ),
+                    "touches": sum(l.get("touches", 1) for l in current_group),
                 }
                 consolidated.append(merged)
                 current_group = [level]
@@ -179,8 +210,12 @@ class SRDetector:
         # Don't forget last group
         merged = {
             "level": float(np.mean([l["level"] for l in current_group])),
-            "strength": min(1.0, sum(l["strength"] for l in current_group) / len(current_group) + 0.1 * len(current_group)),
-            "touches": sum(l.get("touches", 1) for l in current_group)
+            "strength": min(
+                1.0,
+                sum(l["strength"] for l in current_group) / len(current_group)
+                + 0.1 * len(current_group),
+            ),
+            "touches": sum(l.get("touches", 1) for l in current_group),
         }
         consolidated.append(merged)
 
@@ -195,10 +230,11 @@ class SRDetector:
             for rl in self.resistance_levels:
                 distance = abs(sl["level"] - rl["level"]) / (sl["level"] + 1e-6)
                 if distance < 0.02:
-                    zones.append({
-                        "level": (sl["level"] + rl["level"]) / 2,
-                        "strength": sl["strength"] + rl["strength"],
-                        "type": "CONFLUENCE"
-                    })
+                    zones.append(
+                        {
+                            "level": (sl["level"] + rl["level"]) / 2,
+                            "strength": sl["strength"] + rl["strength"],
+                            "type": "CONFLUENCE",
+                        }
+                    )
         return zones
-

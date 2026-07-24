@@ -9,6 +9,7 @@ Detects technical indicators already drawn on the chart image:
 import cv2
 import numpy as np
 
+
 class IndicatorDetector:
     """Detects technical indicator lines from the chart image."""
 
@@ -53,29 +54,33 @@ class IndicatorDetector:
         yellow_mask = cv2.inRange(hsv, np.array([20, 80, 80]), np.array([35, 255, 255]))
         yellow_points = self._extract_line_points(yellow_mask)
         if len(yellow_points) > 10:
-            ma_lines.append({
-                "name": "Fast Moving Average (yellow)",
-                "type": "MA_FAST",
-                "color": "YELLOW",
-                "likely_period": "20 SMA / 9 EMA",
-                "points": yellow_points[:50],
-                "point_count": len(yellow_points),
-                "significance": "Short-term trend direction and dynamic support/resistance",
-            })
+            ma_lines.append(
+                {
+                    "name": "Fast Moving Average (yellow)",
+                    "type": "MA_FAST",
+                    "color": "YELLOW",
+                    "likely_period": "20 SMA / 9 EMA",
+                    "points": yellow_points[:50],
+                    "point_count": len(yellow_points),
+                    "significance": "Short-term trend direction and dynamic support/resistance",
+                }
+            )
 
         # Blue/Cyan MA (common: 50 SMA)
         blue_mask = cv2.inRange(hsv, np.array([100, 60, 60]), np.array([130, 255, 255]))
         blue_points = self._extract_line_points(blue_mask)
         if len(blue_points) > 10:
-            ma_lines.append({
-                "name": "Medium Moving Average (blue)",
-                "type": "MA_MEDIUM",
-                "color": "BLUE",
-                "likely_period": "50 SMA / 21 EMA",
-                "points": blue_points[:50],
-                "point_count": len(blue_points),
-                "significance": "Medium-term trend and institutional level",
-            })
+            ma_lines.append(
+                {
+                    "name": "Medium Moving Average (blue)",
+                    "type": "MA_MEDIUM",
+                    "color": "BLUE",
+                    "likely_period": "50 SMA / 21 EMA",
+                    "points": blue_points[:50],
+                    "point_count": len(blue_points),
+                    "significance": "Medium-term trend and institutional level",
+                }
+            )
 
         # Red/Orange MA (common: 200 SMA)
         red_mask = cv2.inRange(hsv, np.array([0, 60, 60]), np.array([10, 255, 255]))
@@ -83,29 +88,33 @@ class IndicatorDetector:
         red_mask = red_mask | red_mask2
         red_points = self._extract_line_points(red_mask)
         if len(red_points) > 10:
-            ma_lines.append({
-                "name": "Slow Moving Average (red)",
-                "type": "MA_SLOW",
-                "color": "RED",
-                "likely_period": "200 SMA / 100 EMA",
-                "points": red_points[:50],
-                "point_count": len(red_points),
-                "significance": "Long-term trend — institutional traders watch this closely",
-            })
+            ma_lines.append(
+                {
+                    "name": "Slow Moving Average (red)",
+                    "type": "MA_SLOW",
+                    "color": "RED",
+                    "likely_period": "200 SMA / 100 EMA",
+                    "points": red_points[:50],
+                    "point_count": len(red_points),
+                    "significance": "Long-term trend — institutional traders watch this closely",
+                }
+            )
 
         # White/Gray MA
         gray_mask = cv2.inRange(hsv, np.array([0, 0, 180]), np.array([180, 30, 255]))
         gray_points = self._extract_line_points(gray_mask)
         if len(gray_points) > 20:  # Need more points to distinguish from background
-            ma_lines.append({
-                "name": "Moving Average (white/gray)",
-                "type": "MA_OTHER",
-                "color": "WHITE",
-                "likely_period": "Unknown",
-                "points": gray_points[:50],
-                "point_count": len(gray_points),
-                "significance": "Dynamic trend indicator",
-            })
+            ma_lines.append(
+                {
+                    "name": "Moving Average (white/gray)",
+                    "type": "MA_OTHER",
+                    "color": "WHITE",
+                    "likely_period": "Unknown",
+                    "points": gray_points[:50],
+                    "point_count": len(gray_points),
+                    "significance": "Dynamic trend indicator",
+                }
+            )
 
         return ma_lines
 
@@ -137,14 +146,13 @@ class IndicatorDetector:
     def _detect_trend_lines(self, edges: np.ndarray) -> list:
         """Detect diagonal trend lines using Hough transform."""
         lines = cv2.HoughLinesP(
-            edges, 1, np.pi / 180,
-            threshold=60, minLineLength=80, maxLineGap=15
+            edges, 1, np.pi / 180, threshold=60, minLineLength=80, maxLineGap=15
         )
 
         trend_lines = []
         if lines is not None:
             for line in lines:
-                x1, y1, x2, y2 = line[0]
+                x1, y1, x2, y2 = line.ravel()
                 length = np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
                 angle = np.degrees(np.arctan2(y2 - y1, x2 - x1))
 
@@ -156,29 +164,30 @@ class IndicatorDetector:
                         line_type = "FALLING_TRENDLINE"
                         significance = "Resistance trend line — price rejecting here suggests downtrend"
 
-                    trend_lines.append({
-                        "name": f"Trend Line ({'rising' if angle < 0 else 'falling'})",
-                        "type": line_type,
-                        "start": (int(x1), int(y1)),
-                        "end": (int(x2), int(y2)),
-                        "angle": round(float(angle), 1),
-                        "length": round(float(length), 1),
-                        "significance": significance,
-                    })
+                    trend_lines.append(
+                        {
+                            "name": f"Trend Line ({'rising' if angle < 0 else 'falling'})",
+                            "type": line_type,
+                            "start": (int(x1), int(y1)),
+                            "end": (int(x2), int(y2)),
+                            "angle": round(float(angle), 1),
+                            "length": round(float(length), 1),
+                            "significance": significance,
+                        }
+                    )
 
         return trend_lines[:5]  # Limit to top 5
 
     def _detect_horizontal_lines(self, edges: np.ndarray, image: np.ndarray) -> list:
         """Detect manually drawn horizontal lines (not grid lines)."""
         lines = cv2.HoughLinesP(
-            edges, 1, np.pi / 2,
-            threshold=100, minLineLength=150, maxLineGap=5
+            edges, 1, np.pi / 2, threshold=100, minLineLength=150, maxLineGap=5
         )
 
         h_lines = []
         if lines is not None:
             for line in lines:
-                x1, y1, x2, y2 = line[0]
+                x1, y1, x2, y2 = line.ravel()
                 if abs(y2 - y1) < 3:  # Nearly horizontal
 
                     h, w = image.shape[:2]
@@ -188,17 +197,22 @@ class IndicatorDetector:
                         pixel_color = image[y1, mid_x]
 
                         # Not a grid line if it's colored (not just gray)
-                        is_colored = (max(pixel_color) - min(pixel_color) > 50 or
-                                     pixel_color[1] > 150 or pixel_color[0] > 150)
+                        is_colored = (
+                            max(pixel_color) - min(pixel_color) > 50
+                            or pixel_color[1] > 150
+                            or pixel_color[0] > 150
+                        )
 
                         if is_colored:
-                            h_lines.append({
-                                "name": f"Horizontal Level at y={y1}",
-                                "type": "HORIZONTAL_LEVEL",
-                                "y_position": int(y1),
-                                "x_range": (int(x1), int(x2)),
-                                "significance": "Manually drawn level — likely a key S/R or alert level",
-                            })
+                            h_lines.append(
+                                {
+                                    "name": f"Horizontal Level at y={y1}",
+                                    "type": "HORIZONTAL_LEVEL",
+                                    "y_position": int(y1),
+                                    "x_range": (int(x1), int(x2)),
+                                    "significance": "Manually drawn level — likely a key S/R or alert level",
+                                }
+                            )
 
         return h_lines[:5]
 
@@ -251,7 +265,9 @@ class IndicatorDetector:
         min_len = min(len(fast_points), len(slow_points))
 
         for i in range(1, min_len):
-            fast_above_prev = fast_points[i - 1]["y"] < slow_points[i - 1]["y"]  # y inverted
+            fast_above_prev = (
+                fast_points[i - 1]["y"] < slow_points[i - 1]["y"]
+            )  # y inverted
             fast_above_curr = fast_points[i]["y"] < slow_points[i]["y"]
 
             if fast_above_prev != fast_above_curr:
@@ -259,20 +275,25 @@ class IndicatorDetector:
                 if fast_above_curr:  # Fast crossed above slow
                     cross_type = "GOLDEN_CROSS"
                     signal = "BULLISH"
-                    desc = "Fast MA crossed above slow MA (Golden Cross) — bullish signal"
+                    desc = (
+                        "Fast MA crossed above slow MA (Golden Cross) — bullish signal"
+                    )
                 else:  # Fast crossed below slow
                     cross_type = "DEATH_CROSS"
                     signal = "BEARISH"
-                    desc = "Fast MA crossed below slow MA (Death Cross) — bearish signal"
+                    desc = (
+                        "Fast MA crossed below slow MA (Death Cross) — bearish signal"
+                    )
 
-                crossovers.append({
-                    "name": cross_type.replace("_", " ").title(),
-                    "type": cross_type,
-                    "signal": signal,
-                    "x": fast_points[i]["x"],
-                    "description": desc,
-                    "significance": "MA crossovers are lagging signals — confirm with price action"
-                })
+                crossovers.append(
+                    {
+                        "name": cross_type.replace("_", " ").title(),
+                        "type": cross_type,
+                        "signal": signal,
+                        "x": fast_points[i]["x"],
+                        "description": desc,
+                        "significance": "MA crossovers are lagging signals — confirm with price action",
+                    }
+                )
 
         return crossovers
-

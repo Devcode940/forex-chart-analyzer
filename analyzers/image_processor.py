@@ -4,11 +4,13 @@ Handles image upload, preprocessing, adaptive color segmentation (KMeans + HSV),
 chart grid extraction, and price series extraction with noise filtering.
 """
 
+import io
+
 import cv2
 import numpy as np
 from PIL import Image
-import io
 from sklearn.cluster import KMeans
+
 
 class ImageProcessor:
     """Preprocesses forex chart images for analysis with adaptive color detection."""
@@ -42,8 +44,7 @@ class ImageProcessor:
         results["edges"] = self.edges
 
         thresh = cv2.adaptiveThreshold(
-            blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY_INV, 11, 2
+            blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2
         )
         results["threshold"] = thresh
 
@@ -85,15 +86,29 @@ class ImageProcessor:
             h_val, s_val, v_val = center
 
             if 35 <= h_val <= 90 and s_val >= 30 and v_val >= 30:
-                mask = cv2.inRange(hsv, np.array([max(0, h_val - 15), max(0, s_val - 40), max(0, v_val - 40)]),
-                                   np.array([min(179, h_val + 15), min(255, s_val + 40), min(255, v_val + 40)]))
+                mask = cv2.inRange(
+                    hsv,
+                    np.array(
+                        [max(0, h_val - 15), max(0, s_val - 40), max(0, v_val - 40)]
+                    ),
+                    np.array(
+                        [
+                            min(179, h_val + 15),
+                            min(255, s_val + 40),
+                            min(255, v_val + 40),
+                        ]
+                    ),
+                )
                 green_cluster_pixels += cv2.countNonZero(mask)
 
             if (h_val <= 15 or h_val >= 165) and s_val >= 30 and v_val >= 30:
                 lower_h = max(0, h_val - 15) if h_val <= 15 else max(165, h_val - 15)
                 upper_h = min(15, h_val + 15) if h_val <= 15 else min(180, h_val + 15)
-                mask = cv2.inRange(hsv, np.array([lower_h, max(0, s_val - 40), max(0, v_val - 40)]),
-                                   np.array([upper_h, min(255, s_val + 40), min(255, v_val + 40)]))
+                mask = cv2.inRange(
+                    hsv,
+                    np.array([lower_h, max(0, s_val - 40), max(0, v_val - 40)]),
+                    np.array([upper_h, min(255, s_val + 40), min(255, v_val + 40)]),
+                )
                 red_cluster_pixels += cv2.countNonZero(mask)
 
         # ── Fixed HSV ranges (widened) ──
@@ -107,7 +122,9 @@ class ImageProcessor:
         # Merge adaptive + fixed masks (union for maximum recall)
         if green_cluster_pixels > 0:
             # If KMeans found green, widen the green mask slightly
-            green_mask_extra = cv2.inRange(hsv, np.array([30, 25, 25]), np.array([95, 255, 255]))
+            green_mask_extra = cv2.inRange(
+                hsv, np.array([30, 25, 25]), np.array([95, 255, 255])
+            )
             green_mask = green_mask | green_mask_extra
 
         # Stats
@@ -126,7 +143,11 @@ class ImageProcessor:
             "yellow_pixels": cv2.countNonZero(yellow_mask),
             "bullish_ratio": green_pixels / total,
             "bearish_ratio": 1 - green_pixels / total,
-            "sentiment": "BULLISH" if green_pixels / total > 0.52 else "BEARISH" if green_pixels / total < 0.48 else "NEUTRAL",
+            "sentiment": (
+                "BULLISH"
+                if green_pixels / total > 0.52
+                else "BEARISH" if green_pixels / total < 0.48 else "NEUTRAL"
+            ),
             "kmeans_centers": centers.tolist(),
             "green_cluster_pixels": green_cluster_pixels,
             "red_cluster_pixels": red_cluster_pixels,
@@ -138,8 +159,9 @@ class ImageProcessor:
         h_lines = []
         v_lines = []
 
-        all_lines = cv2.HoughLinesP(edges, 1, np.pi / 180, 60,
-                                     minLineLength=80, maxLineGap=15)
+        all_lines = cv2.HoughLinesP(
+            edges, 1, np.pi / 180, 60, minLineLength=80, maxLineGap=15
+        )
         if all_lines is not None:
             for line in all_lines:
                 x1, y1, x2, y2 = line[0]
@@ -149,8 +171,9 @@ class ImageProcessor:
                     v_lines.append((x1, y1, x2, y2))
 
         # Secondary detection — looser parameters for faint grids
-        all_lines2 = cv2.HoughLinesP(edges, 1, np.pi / 180, 40,
-                                      minLineLength=50, maxLineGap=25)
+        all_lines2 = cv2.HoughLinesP(
+            edges, 1, np.pi / 180, 40, minLineLength=50, maxLineGap=25
+        )
         if all_lines2 is not None:
             for line in all_lines2:
                 x1, y1, x2, y2 = line[0]
@@ -167,7 +190,7 @@ class ImageProcessor:
             "horizontal_lines": h_lines,
             "vertical_lines": v_lines,
             "h_line_count": len(h_lines),
-            "v_line_count": len(v_lines)
+            "v_line_count": len(v_lines),
         }
 
     def _filter_lines(self, lines, horizontal=True):
@@ -220,7 +243,9 @@ class ImageProcessor:
                 # IQR outlier removal
                 q1, q3 = np.percentile(nonzero_rows, [25, 75])
                 iqr = q3 - q1
-                mask = (nonzero_rows >= q1 - 1.5 * iqr) & (nonzero_rows <= q3 + 1.5 * iqr)
+                mask = (nonzero_rows >= q1 - 1.5 * iqr) & (
+                    nonzero_rows <= q3 + 1.5 * iqr
+                )
                 clean_rows = nonzero_rows[mask]
 
                 if len(clean_rows) > 0:
@@ -228,13 +253,15 @@ class ImageProcessor:
                     bottom_y = int(clean_rows.max())
                     center_y = (top_y + bottom_y) // 2
                     center_x = (x_start + x_end) // 2
-                    points.append({
-                        "x": center_x,
-                        "center_y": center_y,
-                        "top_y": top_y,
-                        "bottom_y": bottom_y,
-                        "height": bottom_y - top_y
-                    })
+                    points.append(
+                        {
+                            "x": center_x,
+                            "center_y": center_y,
+                            "top_y": top_y,
+                            "bottom_y": bottom_y,
+                            "height": bottom_y - top_y,
+                        }
+                    )
 
         return points
 
@@ -245,12 +272,14 @@ class ImageProcessor:
         Full OCR integration is deferred to a future enhancement.
         """
         h, w = image.shape[:2]
-        right_strip = image[:, int(w * (1 - right_edge_fraction)):]
+        right_strip = image[:, int(w * (1 - right_edge_fraction)) :]
         gray = cv2.cvtColor(right_strip, cv2.COLOR_RGB2GRAY)
 
         # Try to detect horizontal text regions as price labels
         edges = cv2.Canny(gray, 50, 150)
-        horizontal = cv2.HoughLinesP(edges, 1, np.pi / 2, 30, minLineLength=20, maxLineGap=5)
+        horizontal = cv2.HoughLinesP(
+            edges, 1, np.pi / 2, 30, minLineLength=20, maxLineGap=5
+        )
 
         price_levels = []
         if horizontal is not None:
@@ -267,14 +296,14 @@ class ImageProcessor:
                     "estimated_price_range": y_range,
                     "y_pixel_to_price": 1.0 / y_range,
                     "detected_levels": price_levels,
-                    "method": "hough_line_estimation"
+                    "method": "hough_line_estimation",
                 }
 
         return {
             "estimated_price_range": None,
             "y_pixel_to_price": None,
             "detected_levels": [],
-            "method": "no_levels_found"
+            "method": "no_levels_found",
         }
 
     def get_image_stats(self, image: np.ndarray) -> dict:
@@ -285,6 +314,7 @@ class ImageProcessor:
             "height": h,
             "aspect_ratio": w / h,
             "channels": image.shape[2] if len(image.shape) == 3 else 1,
-            "mean_brightness": np.mean(self.gray_image) if self.gray_image is not None else 0,
+            "mean_brightness": (
+                np.mean(self.gray_image) if self.gray_image is not None else 0
+            ),
         }
-

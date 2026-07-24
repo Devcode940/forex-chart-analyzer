@@ -3,8 +3,10 @@ Fibonacci Retracement & Extension Calculator
 Auto-calculates Fib levels from swing points for entry, SL, and TP zones.
 """
 
-import numpy as np
 from typing import Optional
+
+import numpy as np
+
 
 class FibonacciCalculator:
     """Calculates Fibonacci retracement and extension levels."""
@@ -13,20 +15,28 @@ class FibonacciCalculator:
     RETRACEMENT_RATIOS = [0.0, 0.236, 0.382, 0.5, 0.618, 0.786, 1.0]
     EXTENSION_RATIOS = [0.0, 0.272, 0.414, 0.618, 1.0, 1.272, 1.414, 1.618, 2.0, 2.618]
     FIB_LABELS = {
-        0.0: "0%", 0.236: "23.6%", 0.382: "38.2%", 0.5: "50%",
-        0.618: "61.8%", 0.786: "78.6%", 1.0: "100%",
-        1.272: "127.2%", 1.414: "141.4%", 1.618: "161.8%",
-        2.0: "200%", 2.618: "261.8%"
+        0.0: "0%",
+        0.236: "23.6%",
+        0.382: "38.2%",
+        0.5: "50%",
+        0.618: "61.8%",
+        0.786: "78.6%",
+        1.0: "100%",
+        1.272: "127.2%",
+        1.414: "141.4%",
+        1.618: "161.8%",
+        2.0: "200%",
+        2.618: "261.8%",
     }
 
     # Zone importance
     ZONE_IMPORTANCE = {
-        0.382: "MEDIUM",    # Shallow pullback — strong trend
-        0.5: "MEDIUM",     # Deep pullback — moderate trend
-        0.618: "HIGH",     # Golden ratio — most watched level
-        0.786: "MEDIUM",   # Deep pullback — potential reversal zone
-        1.618: "HIGH",     # Golden extension — common TP target
-        2.618: "MEDIUM",   # Extended TP — for strong trends
+        0.382: "MEDIUM",  # Shallow pullback — strong trend
+        0.5: "MEDIUM",  # Deep pullback — moderate trend
+        0.618: "HIGH",  # Golden ratio — most watched level
+        0.786: "MEDIUM",  # Deep pullback — potential reversal zone
+        1.618: "HIGH",  # Golden extension — common TP target
+        2.618: "MEDIUM",  # Extended TP — for strong trends
     }
 
     def __init__(self):
@@ -47,11 +57,30 @@ class FibonacciCalculator:
             price_series_data = structure_results.get("price_series", {})
             smoothed = price_series_data.get("smoothed", [])
             if len(smoothed) < 5:
-                return {"retracements": {}, "extensions": {}, "trade_zones": [], "fib_confluence": []}
+                return {
+                    "retracements": {},
+                    "extensions": {},
+                    "trade_zones": [],
+                    "fib_confluence": [],
+                }
             high_val = max(smoothed)
             low_val = min(smoothed)
-            sig_high = {"value": high_val, "index": smoothed.index(high_val) if isinstance(smoothed, list) else int(np.argmax(smoothed))}
-            sig_low = {"value": low_val, "index": smoothed.index(low_val) if isinstance(smoothed, list) else int(np.argmin(smoothed))}
+            sig_high = {
+                "value": high_val,
+                "index": (
+                    smoothed.index(high_val)
+                    if isinstance(smoothed, list)
+                    else int(np.argmax(smoothed))
+                ),
+            }
+            sig_low = {
+                "value": low_val,
+                "index": (
+                    smoothed.index(low_val)
+                    if isinstance(smoothed, list)
+                    else int(np.argmin(smoothed))
+                ),
+            }
         else:
 
             sig_high = max(swing_highs, key=lambda s: s["value"])
@@ -62,7 +91,12 @@ class FibonacciCalculator:
         price_range = high_val - low_val
 
         if price_range < 1e-6:
-            return {"retracements": {}, "extensions": {}, "trade_zones": [], "fib_confluence": []}
+            return {
+                "retracements": {},
+                "extensions": {},
+                "trade_zones": [],
+                "fib_confluence": [],
+            }
 
         # Calculate retracements based on trend
         if trend == "UPTREND":
@@ -108,7 +142,7 @@ class FibonacciCalculator:
                 "importance": self.ZONE_IMPORTANCE.get(ratio, "LOW"),
                 "type": "RETRACEMENT",
                 "direction": "BUY_ZONE",
-                "image_y_note": f"Price at {round(level, 2)}"
+                "image_y_note": f"Price at {round(level, 2)}",
             }
         return levels
 
@@ -124,7 +158,7 @@ class FibonacciCalculator:
                 "importance": self.ZONE_IMPORTANCE.get(ratio, "LOW"),
                 "type": "RETRACEMENT",
                 "direction": "SELL_ZONE",
-                "image_y_note": f"Price at {round(level, 2)}"
+                "image_y_note": f"Price at {round(level, 2)}",
             }
         return levels
 
@@ -174,11 +208,13 @@ class FibonacciCalculator:
                     "SL below 78.6% (for uptrend) or above 61.8% (for downtrend). "
                     "Target 161.8% extension."
                 ),
-                "trend": trend
+                "trend": trend,
             }
         return {}
 
-    def _identify_trade_zones(self, retracements: dict, extensions: dict, trend: str) -> list:
+    def _identify_trade_zones(
+        self, retracements: dict, extensions: dict, trend: str
+    ) -> list:
         """Identify actionable trade zones based on Fib + trend."""
         zones = []
 
@@ -188,31 +224,35 @@ class FibonacciCalculator:
                 level = retracements[ratio]
                 entry_type = "BUY" if trend in ["UPTREND", "RANGING"] else "SELL"
 
-                zones.append({
-                    "zone_name": f"Fib {level['label']} Retracement",
-                    "price": level["value"],
-                    "action": f"LOOK_FOR_{entry_type}_ENTRY",
-                    "importance": level["importance"],
-                    "reason": (
-                        f"Price pulling back to {level['label']} in {trend}. "
-                        f"{'Shallow pullback = strong trend' if ratio < 0.5 else 'Deep pullback = potential value entry'}."
-                    )
-                })
+                zones.append(
+                    {
+                        "zone_name": f"Fib {level['label']} Retracement",
+                        "price": level["value"],
+                        "action": f"LOOK_FOR_{entry_type}_ENTRY",
+                        "importance": level["importance"],
+                        "reason": (
+                            f"Price pulling back to {level['label']} in {trend}. "
+                            f"{'Shallow pullback = strong trend' if ratio < 0.5 else 'Deep pullback = potential value entry'}."
+                        ),
+                    }
+                )
 
         # Key extension target zones
         for ratio in [1.0, 1.272, 1.618, 2.618]:
             if ratio in extensions:
                 level = extensions[ratio]
-                zones.append({
-                    "zone_name": f"Fib {level['label']} Extension",
-                    "price": level["value"],
-                    "action": "TAKE_PROFIT_TARGET",
-                    "importance": level["importance"],
-                    "reason": (
-                        f"Fibonacci extension at {level['label']}. "
-                        f"{'Most common TP target' if ratio == 1.618 else 'Extended target for strong moves'}."
-                    )
-                })
+                zones.append(
+                    {
+                        "zone_name": f"Fib {level['label']} Extension",
+                        "price": level["value"],
+                        "action": "TAKE_PROFIT_TARGET",
+                        "importance": level["importance"],
+                        "reason": (
+                            f"Fibonacci extension at {level['label']}. "
+                            f"{'Most common TP target' if ratio == 1.618 else 'Extended target for strong moves'}."
+                        ),
+                    }
+                )
 
         return zones
 
@@ -228,14 +268,17 @@ class FibonacciCalculator:
             avg_value = sum(values) / len(values)
 
             if price_range < abs(avg_value) * 0.05:  # Within 5% of each other
-                confluences.append({
-                    "name": "Fib Confluence Zone",
-                    "center": round(avg_value, 2),
-                    "range": round(price_range, 2),
-                    "ratios": [self.FIB_LABELS.get(r, f"{r:.1%}") for r in important_ratios],
-                    "strength": "HIGH",
-                    "note": "Multiple Fib levels cluster here — high-probability reaction zone"
-                })
+                confluences.append(
+                    {
+                        "name": "Fib Confluence Zone",
+                        "center": round(avg_value, 2),
+                        "range": round(price_range, 2),
+                        "ratios": [
+                            self.FIB_LABELS.get(r, f"{r:.1%}") for r in important_ratios
+                        ],
+                        "strength": "HIGH",
+                        "note": "Multiple Fib levels cluster here — high-probability reaction zone",
+                    }
+                )
 
         return confluences
-
