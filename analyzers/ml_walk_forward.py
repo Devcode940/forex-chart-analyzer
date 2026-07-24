@@ -32,7 +32,9 @@ class WalkForwardValidator:
     # Class-level cache for static, deterministic operations
     _cached_X = None
     _cached_y = None
-    _cached_validation_runs: dict = {}  # maps n_windows -> static validation metrics dict
+    _cached_validation_runs: dict = (
+        {}
+    )  # maps n_windows -> static validation metrics dict
     _cached_model = None  # cached trained model for _predict_current
 
     def __init__(self):
