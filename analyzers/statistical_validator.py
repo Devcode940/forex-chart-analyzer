@@ -93,8 +93,8 @@ class StatisticalValidator:
                 random_profitable = np.sum(random_changes < 0)
                 random_strong_moves = np.sum(random_changes <= actual_second_half_change)
             else:
-                random_profitable = n_simulations // 2
-                random_strong_moves = n_simulations // 2
+                random_profitable = 0
+                random_strong_moves = 0
         else:
             random_profitable = 0
             random_strong_moves = 0
@@ -237,14 +237,18 @@ class StatisticalValidator:
         # Compute means, deviations, slope, intercept, and R^2 across rows (axis=1)
         y_means = np.mean(reconstructed_paths, axis=1, keepdims=True)
         y_devs = reconstructed_paths - y_means
-        slopes = np.sum(y_devs * x_dev, axis=1) / x_var
-        intercepts = y_means.squeeze() - slopes * x_mean
 
-        # predicted_y = slopes * x + intercept
-        predicted = slopes[:, None] * x[None, :] + intercepts[:, None]
-        ss_res = np.sum((reconstructed_paths - predicted) ** 2, axis=1)
-        ss_tot = np.sum(y_devs ** 2, axis=1)
-        trend_strengths = np.where(ss_tot > 0, 1 - ss_res / ss_tot, 0.0)
+        # Add guard against n <= 1 or x_var == 0 division by zero
+        if x_var > 0:
+            slopes = np.sum(y_devs * x_dev, axis=1) / x_var
+            # Using non-squeezing broadcasting for robustness when n_bootstrap=1
+            intercepts = y_means - slopes[:, None] * x_mean
+            predicted = slopes[:, None] * x[None, :] + intercepts
+            ss_res = np.sum((reconstructed_paths - predicted) ** 2, axis=1)
+            ss_tot = np.sum(y_devs ** 2, axis=1)
+            trend_strengths = np.where(ss_tot > 0, 1 - ss_res / ss_tot, 0.0)
+        else:
+            trend_strengths = np.zeros(n_bootstrap)
 
         # 4. Volatilities
         volatilities = np.std(samples, axis=1)
