@@ -61,7 +61,6 @@ class StatisticalValidator:
         pattern_direction = pattern_results[0].get("target_direction", "PENDING") if pattern_results else "PENDING"
 
         n_bars = len(smoothed)
-        random_pattern_count = 0
         random_profitable = 0
         random_strong_moves = 0
 
@@ -72,31 +71,25 @@ class StatisticalValidator:
         if len(first_half) > 0 and len(second_half) > 0:
             actual_second_half_change = (second_half[-1] - first_half[-1]) / (first_half[-1] + 1e-6)
 
-        for sim in range(n_simulations):
-            # Generate Geometric Brownian Motion path
-            random_returns_sim = np.random.normal(mu, sigma, n_bars - 1)
-            random_prices = np.zeros(n_bars)
-            random_prices[0] = smoothed[0]
+        # Performance Optimization: Heavily vectorized Monte Carlo Simulation
+        if pattern_direction != "PENDING" and n_simulations > 0:
+            # Generate all Geometric Brownian Motion paths in a single 2D NumPy array
+            random_returns_sims = np.random.normal(mu, sigma, (n_simulations, n_bars - 1))
+            random_prices = np.zeros((n_simulations, n_bars))
+            random_prices[:, 0] = smoothed[0]
+            # cumprod across axis 1 to reconstruct all paths in one operation
+            random_prices[:, 1:] = smoothed[0] * np.cumprod(1 + random_returns_sims, axis=1)
 
-            for i in range(1, n_bars):
-                random_prices[i] = random_prices[i - 1] * (1 + random_returns_sim[i - 1])
+            mid_point = n_bars // 2
+            random_changes = (random_prices[:, -1] - random_prices[:, mid_point]) / (random_prices[:, mid_point] + 1e-6)
 
-            # Compare: does random path produce a move as strong as the actual chart?
-            if pattern_direction != "PENDING":
-                mid_point = n_bars // 2
-                random_change = (random_prices[-1] - random_prices[mid_point]) / (random_prices[mid_point] + 1e-6)
+            if pattern_direction == "UP":
+                random_profitable = np.sum(random_changes > 0)
+                random_strong_moves = np.sum(random_changes >= actual_second_half_change)
+            elif pattern_direction == "DOWN":
+                random_profitable = np.sum(random_changes < 0)
+                random_strong_moves = np.sum(random_changes <= actual_second_half_change)
 
-                if pattern_direction == "UP":
-                    if random_change > 0:
-                        random_profitable += 1
-                    # How often does random produce a move as strong as the observed one?
-                    if random_change >= actual_second_half_change:
-                        random_strong_moves += 1
-                elif pattern_direction == "DOWN":
-                    if random_change < 0:
-                        random_profitable += 1
-                    if random_change <= actual_second_half_change:
-                        random_strong_moves += 1
         random_win_rate = random_profitable / n_simulations if n_simulations > 0 else 0.5
         # How often does random data produce a move AS STRONG as the observed pattern?
         random_strong_rate = random_strong_moves / n_simulations if n_simulations > 0 else 0.5
@@ -214,35 +207,42 @@ class StatisticalValidator:
             return {"error": "Insufficient data for bootstrap"}
 
         returns = np.diff(smoothed) / (smoothed[:-1] + 1e-6)
-
-        # Bootstrap resampling
-        trend_strengths = []
-        volatilities = []
-        efficiency_ratios = []
-        win_rates = []
-
         n = len(returns)
 
-        for _ in range(n_bootstrap):
-            # Resample returns with replacement
-            sample_idx = np.random.randint(0, n, size=n)
-            sample = returns[sample_idx]
+        # Performance Optimization: Vectorized Bootstrap Resampling
+        # Generate all resample indexes at once
+        sample_idxs = np.random.randint(0, n, size=(n_bootstrap, n))
+        samples = returns[sample_idxs]  # shape: (n_bootstrap, n)
 
-            # Reconstruct price path
-            reconstructed = np.cumprod(1 + sample) * smoothed[0]
+        # Reconstruct price paths: shape (n_bootstrap, n)
+        # Reconstructed path length strictly matches the original code definitions (length n)
+        reconstructeds = np.cumprod(1 + samples, axis=1) * smoothed[0]
 
-            # Calculate metrics on resampled data
-            trend_strengths.append(self._calc_trend_r2(reconstructed))
-            volatilities.append(np.std(sample))
+        # 1. Vectorized calculation of trend_r2 (R² from linear regression on each path)
+        x = np.arange(n)
+        x_mean = np.mean(x)
+        x_dev = x - x_mean
+        sum_x_dev2 = np.sum(x_dev ** 2)
 
-            net = abs(reconstructed[-1] - reconstructed[0])
-            path = np.sum(np.abs(np.diff(reconstructed)))
-            efficiency_ratios.append(net / path if path > 0 else 0)
+        y_mean = np.mean(reconstructeds, axis=1, keepdims=True)
+        y_dev = reconstructeds - y_mean
+        cov_xy = np.sum(y_dev * x_dev, axis=1)
+        slopes = cov_xy / sum_x_dev2
+        ss_reg = (slopes ** 2) * sum_x_dev2
+        ss_tot = np.sum(y_dev ** 2, axis=1)
+        trend_strengths = np.where(ss_tot > 0, ss_reg / ss_tot, 0.0)
 
-            # Win rate: what fraction of bars go in the trend direction
-            direction = 1 if reconstructed[-1] > reconstructed[0] else -1
-            wins = sum(1 for r in sample if np.sign(r) == direction)
-            win_rates.append(wins / n)
+        # 2. Vectorized volatilities
+        volatilities = np.std(samples, axis=1)
+
+        # 3. Vectorized efficiency ratios
+        nets = np.abs(reconstructeds[:, -1] - reconstructeds[:, 0])
+        diffs = np.sum(np.abs(np.diff(reconstructeds, axis=1)), axis=1)
+        efficiency_ratios = np.where(diffs > 0, nets / diffs, 0.0)
+
+        # 4. Vectorized win rates
+        directions = np.where(reconstructeds[:, -1] > reconstructeds[:, 0], 1, -1)[:, np.newaxis]
+        win_rates = np.sum(np.sign(samples) == directions, axis=1) / n
 
         results = {}
 
