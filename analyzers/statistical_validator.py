@@ -61,7 +61,6 @@ class StatisticalValidator:
         pattern_direction = pattern_results[0].get("target_direction", "PENDING") if pattern_results else "PENDING"
 
         n_bars = len(smoothed)
-        random_pattern_count = 0
         random_profitable = 0
         random_strong_moves = 0
 
@@ -72,31 +71,25 @@ class StatisticalValidator:
         if len(first_half) > 0 and len(second_half) > 0:
             actual_second_half_change = (second_half[-1] - first_half[-1]) / (first_half[-1] + 1e-6)
 
-        for sim in range(n_simulations):
-            # Generate Geometric Brownian Motion path
-            random_returns_sim = np.random.normal(mu, sigma, n_bars - 1)
-            random_prices = np.zeros(n_bars)
-            random_prices[0] = smoothed[0]
-
-            for i in range(1, n_bars):
-                random_prices[i] = random_prices[i - 1] * (1 + random_returns_sim[i - 1])
+        if n_simulations > 0 and n_bars > 1:
+            # Generate Geometric Brownian Motion paths in parallel
+            random_returns_all = np.random.normal(mu, sigma, (n_simulations, n_bars - 1))
+            random_prices = np.zeros((n_simulations, n_bars))
+            random_prices[:, 0] = smoothed[0]
+            random_prices[:, 1:] = np.cumprod(1 + random_returns_all, axis=1) * smoothed[0]
 
             # Compare: does random path produce a move as strong as the actual chart?
             if pattern_direction != "PENDING":
                 mid_point = n_bars // 2
-                random_change = (random_prices[-1] - random_prices[mid_point]) / (random_prices[mid_point] + 1e-6)
+                random_changes = (random_prices[:, -1] - random_prices[:, mid_point]) / (random_prices[:, mid_point] + 1e-6)
 
                 if pattern_direction == "UP":
-                    if random_change > 0:
-                        random_profitable += 1
-                    # How often does random produce a move as strong as the observed one?
-                    if random_change >= actual_second_half_change:
-                        random_strong_moves += 1
+                    random_profitable = np.sum(random_changes > 0)
+                    random_strong_moves = np.sum(random_changes >= actual_second_half_change)
                 elif pattern_direction == "DOWN":
-                    if random_change < 0:
-                        random_profitable += 1
-                    if random_change <= actual_second_half_change:
-                        random_strong_moves += 1
+                    random_profitable = np.sum(random_changes < 0)
+                    random_strong_moves = np.sum(random_changes <= actual_second_half_change)
+
         random_win_rate = random_profitable / n_simulations if n_simulations > 0 else 0.5
         # How often does random data produce a move AS STRONG as the observed pattern?
         random_strong_rate = random_strong_moves / n_simulations if n_simulations > 0 else 0.5
@@ -215,34 +208,49 @@ class StatisticalValidator:
 
         returns = np.diff(smoothed) / (smoothed[:-1] + 1e-6)
 
-        # Bootstrap resampling
-        trend_strengths = []
-        volatilities = []
-        efficiency_ratios = []
-        win_rates = []
-
         n = len(returns)
 
-        for _ in range(n_bootstrap):
-            # Resample returns with replacement
-            sample_idx = np.random.randint(0, n, size=n)
-            sample = returns[sample_idx]
+        if n_bootstrap > 0 and n > 0:
+            # Generate all random bootstrap indices at once
+            sample_idx_all = np.random.randint(0, n, size=(n_bootstrap, n))
+            sample_all = returns[sample_idx_all]  # shape: (n_bootstrap, n)
 
-            # Reconstruct price path
-            reconstructed = np.cumprod(1 + sample) * smoothed[0]
+            # Reconstruct price paths in parallel
+            reconstructed_all = np.cumprod(1 + sample_all, axis=1) * smoothed[0]  # shape: (n_bootstrap, n)
 
-            # Calculate metrics on resampled data
-            trend_strengths.append(self._calc_trend_r2(reconstructed))
-            volatilities.append(np.std(sample))
+            # 1. Vectorized trend R2 (ordinary least squares)
+            x = np.arange(n)
+            x_mean = np.mean(x)
+            x_dev = x - x_mean
+            x_var = np.sum(x_dev ** 2)
 
-            net = abs(reconstructed[-1] - reconstructed[0])
-            path = np.sum(np.abs(np.diff(reconstructed)))
-            efficiency_ratios.append(net / path if path > 0 else 0)
+            y_mean = np.mean(reconstructed_all, axis=1, keepdims=True)
+            y_dev = reconstructed_all - y_mean
+            # dot product of each row in y_dev with x_dev
+            slope_all = np.dot(y_dev, x_dev) / x_var
+            intercept_all = y_mean.squeeze() - slope_all * x_mean
+            predicted_all = slope_all[:, np.newaxis] * x + intercept_all[:, np.newaxis]
+            ss_res_all = np.sum((reconstructed_all - predicted_all) ** 2, axis=1)
+            ss_tot_all = np.sum(y_dev ** 2, axis=1)
+            trend_strengths = np.where(ss_tot_all > 0, 1 - ss_res_all / ss_tot_all, 0.0)
 
-            # Win rate: what fraction of bars go in the trend direction
-            direction = 1 if reconstructed[-1] > reconstructed[0] else -1
-            wins = sum(1 for r in sample if np.sign(r) == direction)
-            win_rates.append(wins / n)
+            # 2. Vectorized volatilities
+            volatilities = np.std(sample_all, axis=1)
+
+            # 3. Vectorized efficiency ratios
+            net_all = np.abs(reconstructed_all[:, -1] - reconstructed_all[:, 0])
+            path_all = np.sum(np.abs(np.diff(reconstructed_all, axis=1)), axis=1)
+            efficiency_ratios = np.where(path_all > 0, net_all / path_all, 0.0)
+
+            # 4. Vectorized win rates
+            directions_all = np.where(reconstructed_all[:, -1] > reconstructed_all[:, 0], 1, -1)[:, np.newaxis]
+            wins_all = np.sum(np.sign(sample_all) == directions_all, axis=1)
+            win_rates = wins_all / n
+        else:
+            trend_strengths = np.zeros(n_bootstrap)
+            volatilities = np.zeros(n_bootstrap)
+            efficiency_ratios = np.zeros(n_bootstrap)
+            win_rates = np.zeros(n_bootstrap)
 
         results = {}
 
