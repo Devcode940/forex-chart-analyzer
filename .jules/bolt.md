@@ -1,0 +1,3 @@
+## 2025-02-14 - Vectorizing Monte Carlo and Bootstrap Resampling
+**Learning:** Nested loops in statistical validation (Monte Carlo and Bootstrap) cause huge performance degradation in Python. By vectorizing simulations and resamples into 2D NumPy matrices, we can calculate path generation and OLS linear regressions (using algebraic Pearson correlation squared) in a single step. This avoids expensive repeated calls to `np.polyfit` and sequential random generation.
+**Action:** Always look for loops that repeatedly execute independent statistical simulations or resamples, and rewrite them to use 2D array broadcasting and algebraic formulations (like correlation squared for simple linear regression R²).
