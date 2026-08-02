@@ -10,9 +10,12 @@ jobs:
   lint-and-test:
     name: Lint & Test (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     strategy:
       matrix:
-        python-version: [3.10, 3.11]
+        python-version: ['3.10', '3.11']
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
