@@ -3,52 +3,57 @@ Visualizer Module
 Creates annotated chart overlays with detected patterns, S/R levels, and SL/TP markers.
 """
 
+import io
+
 import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
-import io
+
 
 class Visualizer:
     """Creates visual overlays on forex chart images."""
 
     # Color scheme
     COLORS = {
-        "support": (0, 255, 0),         # Green
-        "resistance": (255, 0, 0),       # Red
-        "confluence": (255, 165, 0),     # Orange
-        "bullish_pattern": (0, 200, 100), # Teal Green
-        "bearish_pattern": (255, 50, 50), # Bright Red
-        "neutral_pattern": (255, 255, 0), # Yellow
-        "sl_line": (255, 0, 255),        # Magenta
-        "tp_line": (0, 255, 255),        # Cyan
-        "trend_line": (100, 149, 237),   # Cornflower Blue
-        "swing_high": (255, 100, 100),   # Light Red
-        "swing_low": (100, 255, 100),    # Light Green
-        "bos_bullish": (0, 255, 200),    # Aqua
-        "bos_bearish": (255, 100, 0),    # Orange Red
-        "text_bg": (0, 0, 0, 180),      # Semi-transparent black
-        "fib_382": (255, 165, 0),       # Orange 38.2%
-        "fib_500": (255, 255, 0),       # Yellow 50%
-        "fib_618": (255, 100, 0),       # Deep Orange 61.8%
-        "fib_786": (200, 50, 0),        # Dark Orange 78.6%
-        "fib_ext": (0, 200, 255),       # Light Blue extensions
-        "liquidity_buy": (255, 50, 50), # Red buy-side
-        "liquidity_sell": (50, 255, 50),# Green sell-side
-        "divergence_bull": (0, 255, 200),# Aqua bullish div
-        "divergence_bear": (255, 50, 150),# Pink bearish div
-        "candlestick_bull": (100, 255, 150),# Light green
-        "candlestick_bear": (255, 100, 100),# Light red
+        "support": (0, 255, 0),  # Green
+        "resistance": (255, 0, 0),  # Red
+        "confluence": (255, 165, 0),  # Orange
+        "bullish_pattern": (0, 200, 100),  # Teal Green
+        "bearish_pattern": (255, 50, 50),  # Bright Red
+        "neutral_pattern": (255, 255, 0),  # Yellow
+        "sl_line": (255, 0, 255),  # Magenta
+        "tp_line": (0, 255, 255),  # Cyan
+        "trend_line": (100, 149, 237),  # Cornflower Blue
+        "swing_high": (255, 100, 100),  # Light Red
+        "swing_low": (100, 255, 100),  # Light Green
+        "bos_bullish": (0, 255, 200),  # Aqua
+        "bos_bearish": (255, 100, 0),  # Orange Red
+        "text_bg": (0, 0, 0, 180),  # Semi-transparent black
+        "fib_382": (255, 165, 0),  # Orange 38.2%
+        "fib_500": (255, 255, 0),  # Yellow 50%
+        "fib_618": (255, 100, 0),  # Deep Orange 61.8%
+        "fib_786": (200, 50, 0),  # Dark Orange 78.6%
+        "fib_ext": (0, 200, 255),  # Light Blue extensions
+        "liquidity_buy": (255, 50, 50),  # Red buy-side
+        "liquidity_sell": (50, 255, 50),  # Green sell-side
+        "divergence_bull": (0, 255, 200),  # Aqua bullish div
+        "divergence_bear": (255, 50, 150),  # Pink bearish div
+        "candlestick_bull": (100, 255, 150),  # Light green
+        "candlestick_bear": (255, 100, 100),  # Light red
     }
 
     def __init__(self):
         self.annotated_image = None
 
-    def create_full_overlay(self, original_image: np.ndarray,
-                            pattern_results: list,
-                            sr_results: dict,
-                            structure_results: dict,
-                            sltp_results: dict,
-                            regime_results: dict) -> np.ndarray:
+    def create_full_overlay(
+        self,
+        original_image: np.ndarray,
+        pattern_results: list,
+        sr_results: dict,
+        structure_results: dict,
+        sltp_results: dict,
+        regime_results: dict,
+    ) -> np.ndarray:
         """Create an annotated overlay of all detected features."""
 
         pil_img = Image.fromarray(original_image)
@@ -87,8 +92,9 @@ class Visualizer:
 
             # Dashed line effect
             for x in range(0, width, 8):
-                draw.line([(x, y), (min(x + 4, width), y)],
-                         fill=(*color, alpha), width=2)
+                draw.line(
+                    [(x, y), (min(x + 4, width), y)], fill=(*color, alpha), width=2
+                )
 
             # Label
             draw.rectangle([(5, y - 10), (85, y + 10)], fill=(0, 0, 0, 160))
@@ -101,8 +107,9 @@ class Visualizer:
             alpha = int(100 + strength * 155)
 
             for x in range(0, width, 8):
-                draw.line([(x, y), (min(x + 4, width), y)],
-                         fill=(*color, alpha), width=2)
+                draw.line(
+                    [(x, y), (min(x + 4, width), y)], fill=(*color, alpha), width=2
+                )
 
             draw.rectangle([(5, y - 10), (85, y + 10)], fill=(0, 0, 0, 160))
             draw.text((10, y - 8), f"R ({strength:.0%})", fill=(*color, 255))
@@ -110,8 +117,9 @@ class Visualizer:
         for zone in sr_results.get("key_zones", []):
             y = int(zone.get("level", 0))
             # Can't directly use image_y for confluence, so approximate
-            draw.rectangle([(0, y - 3), (width, y + 3)],
-                          fill=(*self.COLORS["confluence"], 80))
+            draw.rectangle(
+                [(0, y - 3), (width, y + 3)], fill=(*self.COLORS["confluence"], 80)
+            )
 
     def _draw_patterns(self, draw: ImageDraw.Draw, patterns: list, img_height: int):
         """Draw pattern zones and labels."""
@@ -134,14 +142,16 @@ class Visualizer:
             if x1 > 0 or x2 > 0:
                 draw.rectangle(
                     [(x1, 20 + i * 35), (x2, 50 + i * 35)],
-                    outline=(*color, 150), width=2
+                    outline=(*color, 150),
+                    width=2,
                 )
 
             # Draw pattern label
             label = f"📊 {name} ({confidence:.0%})"
-            draw.rectangle([(width_offset := 100, 20 + i * 35),
-                           (width_offset + 250, 50 + i * 35)],
-                          fill=(0, 0, 0, 180))
+            draw.rectangle(
+                [(width_offset := 100, 20 + i * 35), (width_offset + 250, 50 + i * 35)],
+                fill=(0, 0, 0, 180),
+            )
             draw.text((width_offset + 5, 25 + i * 35), label, fill=(*color, 255))
 
     def _draw_structure(self, draw: ImageDraw.Draw, structure: dict):
@@ -151,8 +161,10 @@ class Visualizer:
             x = sh.get("x", 0)
             y = sh.get("price_y", 0)
             # Draw triangle marker
-            draw.polygon([(x, y - 12), (x - 8, y), (x + 8, y)],
-                        fill=(*self.COLORS["swing_high"], 200))
+            draw.polygon(
+                [(x, y - 12), (x - 8, y), (x + 8, y)],
+                fill=(*self.COLORS["swing_high"], 200),
+            )
             draw.text((x + 10, y - 15), "SH", fill=(*self.COLORS["swing_high"], 200))
 
         # Swing lows
@@ -160,8 +172,10 @@ class Visualizer:
             x = sl.get("x", 0)
             y = sl.get("price_y", 0)
             # Draw inverted triangle
-            draw.polygon([(x, y + 12), (x - 8, y), (x + 8, y)],
-                        fill=(*self.COLORS["swing_low"], 200))
+            draw.polygon(
+                [(x, y + 12), (x - 8, y), (x + 8, y)],
+                fill=(*self.COLORS["swing_low"], 200),
+            )
             draw.text((x + 10, y + 5), "SL", fill=(*self.COLORS["swing_low"], 200))
 
         # Breaks of structure
@@ -177,8 +191,9 @@ class Visualizer:
                 color = self.COLORS["bos_bearish"]
                 label = "▼ BOS"
 
-            draw.ellipse([(x - 12, y - 12), (x + 12, y + 12)],
-                        outline=(*color, 200), width=2)
+            draw.ellipse(
+                [(x - 12, y - 12), (x + 12, y + 12)], outline=(*color, 200), width=2
+            )
             draw.text((x + 15, y - 8), label, fill=(*color, 255))
 
     def _draw_sltp(self, draw: ImageDraw.Draw, sltp_results: dict, width: int):
@@ -203,15 +218,15 @@ class Visualizer:
         img_height = draw.im.size[1]
         box_y = img_height - 80
 
-        draw.rectangle([(10, box_y), (350, img_height - 10)],
-                      fill=(0, 0, 0, 200))
+        draw.rectangle([(10, box_y), (350, img_height - 10)], fill=(0, 0, 0, 200))
 
-        draw.text((15, box_y + 5), direction_label,
-                 fill=(0, 255, 0, 255) if direction == "BUY" else (255, 0, 0, 255))
-        draw.text((15, box_y + 25), sl_label,
-                 fill=(*self.COLORS["sl_line"], 255))
-        draw.text((15, box_y + 45), tp_label,
-                 fill=(*self.COLORS["tp_line"], 255))
+        draw.text(
+            (15, box_y + 5),
+            direction_label,
+            fill=(0, 255, 0, 255) if direction == "BUY" else (255, 0, 0, 255),
+        )
+        draw.text((15, box_y + 25), sl_label, fill=(*self.COLORS["sl_line"], 255))
+        draw.text((15, box_y + 45), tp_label, fill=(*self.COLORS["tp_line"], 255))
 
     def _draw_regime_panel(self, draw: ImageDraw.Draw, regime: dict, w: int, h: int):
         """Draw market regime info panel."""
@@ -224,8 +239,9 @@ class Visualizer:
         # Draw panel on top-right
         panel_w = 300
         panel_h = 120
-        draw.rectangle([(w - panel_w - 10, 10), (w - 10, panel_h + 10)],
-                      fill=(0, 0, 0, 200))
+        draw.rectangle(
+            [(w - panel_w - 10, 10), (w - 10, panel_h + 10)], fill=(0, 0, 0, 200)
+        )
 
         x = w - panel_w - 5
         y = 15
@@ -235,25 +251,31 @@ class Visualizer:
             "TRENDING": (0, 255, 100),
             "RANGING": (255, 255, 0),
             "VOLATILE": (255, 50, 50),
-            "TRANSITIONAL": (255, 165, 0)
+            "TRANSITIONAL": (255, 165, 0),
         }
         color = regime_colors.get(regime_name, (200, 200, 200))
 
         draw.text((x, y), f"REGIME: {regime_name}", fill=(*color, 255))
         draw.text((x, y + 20), f"Sub: {sub_regime}", fill=(200, 200, 200, 255))
-        draw.text((x, y + 40), f"Confidence: {confidence:.0%}", fill=(200, 200, 200, 255))
-        draw.text((x, y + 60), f"Style: {trading_style[:30]}", fill=(200, 200, 200, 255))
+        draw.text(
+            (x, y + 40), f"Confidence: {confidence:.0%}", fill=(200, 200, 200, 255)
+        )
+        draw.text(
+            (x, y + 60), f"Style: {trading_style[:30]}", fill=(200, 200, 200, 255)
+        )
         draw.text((x, y + 80), f"Risk: {risk_level}", fill=(200, 200, 200, 255))
 
-    def _draw_summary_panel(self, draw: ImageDraw.Draw, patterns: list,
-                            sr: dict, sltp: dict, w: int, h: int):
+    def _draw_summary_panel(
+        self, draw: ImageDraw.Draw, patterns: list, sr: dict, sltp: dict, w: int, h: int
+    ):
         """Draw analysis summary panel."""
         panel_w = 280
         panel_h = 100
 
         # Position on left side
-        draw.rectangle([(10, h - panel_h - 90), (10 + panel_w, h - 90)],
-                      fill=(0, 0, 0, 200))
+        draw.rectangle(
+            [(10, h - panel_h - 90), (10 + panel_w, h - 90)], fill=(0, 0, 0, 200)
+        )
 
         x = 15
         y = h - panel_h - 85
@@ -265,21 +287,30 @@ class Visualizer:
 
         draw.text((x, y), "━━━ ANALYSIS SUMMARY ━━━", fill=(255, 255, 255, 255))
         draw.text((x, y + 20), f"Patterns Found: {n_patterns}", fill=(255, 255, 0, 255))
-        draw.text((x, y + 40), f"S/R Levels: {n_supports}S / {n_resistances}R", fill=(255, 255, 0, 255))
+        draw.text(
+            (x, y + 40),
+            f"S/R Levels: {n_supports}S / {n_resistances}R",
+            fill=(255, 255, 0, 255),
+        )
 
         bias_color = {
             "BULLISH": (0, 255, 0),
             "BEARISH": (255, 0, 0),
-            "NEUTRAL": (255, 255, 0)
+            "NEUTRAL": (255, 255, 0),
         }
-        draw.text((x, y + 60), f"Bias: {bias}",
-                 fill=(*bias_color.get(bias, (255, 255, 255)), 255))
+        draw.text(
+            (x, y + 60),
+            f"Bias: {bias}",
+            fill=(*bias_color.get(bias, (255, 255, 255)), 255),
+        )
 
         best = sltp.get("best_scenario")
         if best:
-            draw.text((x, y + 80),
-                     f"Best Setup: R:R {best.get('risk_reward', 0):.2f}",
-                     fill=(0, 255, 255, 255))
+            draw.text(
+                (x, y + 80),
+                f"Best Setup: R:R {best.get('risk_reward', 0):.2f}",
+                fill=(0, 255, 255, 255),
+            )
 
     def create_pattern_detail_image(self, pattern: dict, img_height: int) -> np.ndarray:
         """Create a detailed visualization for a specific pattern."""
@@ -316,4 +347,3 @@ class Visualizer:
             draw.text((10, 80 + i * 18), line, fill=(180, 180, 180, 255))
 
         return np.array(pil_canvas)
-
