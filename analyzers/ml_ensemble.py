@@ -34,16 +34,36 @@ class MLEnsemble:
         self.is_trained = False
         self.training_stats = {}
 
+        # Bounded OrderedDict cache for high Streamlit performance
+        from collections import OrderedDict
+        self._cache = OrderedDict()
+        self._cache_capacity = 16
+
     def train_and_predict(self, feature_vector: np.ndarray,
                           pattern_results: list,
                           structure_results: dict,
                           regime_results: dict,
                           confluence_results: dict) -> dict:
         """
-        Full ML pipeline: generate data, train, predict.
+        Full ML pipeline with caching: generate data, train, predict.
         """
         if len(feature_vector) == 0:
             return {"error": "No features extracted"}
+
+        # OrderedDict cache lookup
+        cache_key = feature_vector.tobytes()
+        if cache_key in self._cache:
+            cached_data = self._cache[cache_key]
+            # Fully restore the internal fitted state and model attributes
+            self.rf_model = cached_data["rf_model"]
+            self.gb_model = cached_data["gb_model"]
+            self.meta_model = cached_data["meta_model"]
+            self.scaler = cached_data["scaler"]
+            self.is_trained = cached_data["is_trained"]
+            self.training_stats = cached_data["training_stats"]
+            self._cache.move_to_end(cache_key)
+            return cached_data["results"]
+
         X_train, y_train = self._generate_synthetic_data(n_samples=2000)
         X_aug, y_aug = self._augment_with_heuristics(
             feature_vector, pattern_results, structure_results, regime_results, confluence_results
@@ -55,7 +75,7 @@ class MLEnsemble:
         cv_score = self._cross_validate(X_train, y_train)
         importance = self._feature_importance()
 
-        return {
+        results = {
             "ml_probability": prediction["probability"],
             "ml_direction": prediction["direction"],
             "ml_confidence": prediction["confidence"],
@@ -67,6 +87,21 @@ class MLEnsemble:
             "training_samples": len(y_train),
             "is_trained": self.is_trained,
         }
+
+        # Store in cache
+        self._cache[cache_key] = {
+            "rf_model": self.rf_model,
+            "gb_model": self.gb_model,
+            "meta_model": self.meta_model,
+            "scaler": self.scaler,
+            "is_trained": self.is_trained,
+            "training_stats": self.training_stats,
+            "results": results,
+        }
+        if len(self._cache) > self._cache_capacity:
+            self._cache.popitem(last=False)
+
+        return results
 
     def _generate_synthetic_data(self, n_samples: int = 2000):
         """
@@ -199,13 +234,13 @@ class MLEnsemble:
         # Scale features
         X_scaled = self.scaler.fit_transform(X)
 
-        # Base learners
+        # Base learners with balanced hyperparameters
         self.rf_model = RandomForestClassifier(
-            n_estimators=200, max_depth=8, min_samples_leaf=5,
+            n_estimators=100, max_depth=8, min_samples_leaf=5,
             random_state=42, n_jobs=-1
         )
         self.gb_model = GradientBoostingClassifier(
-            n_estimators=150, max_depth=5, learning_rate=0.1,
+            n_estimators=80, max_depth=5, learning_rate=0.1,
             min_samples_leaf=5, random_state=42
         )
 
@@ -256,18 +291,18 @@ class MLEnsemble:
         }
 
     def _cross_validate(self, X, y) -> dict:
-        """Run cross-validation on the base models."""
+        """Run cross-validation on the base models with balanced hyperparameters."""
         X_scaled = self.scaler.transform(X)
 
         try:
             rf_cv = cross_val_score(
-                RandomForestClassifier(n_estimators=200, max_depth=8, min_samples_leaf=5, random_state=42),
-                X_scaled, y, cv=5, scoring='accuracy'
+                RandomForestClassifier(n_estimators=100, max_depth=8, min_samples_leaf=5, random_state=42),
+                X_scaled, y, cv=3, scoring='accuracy'
             )
             gb_cv = cross_val_score(
-                GradientBoostingClassifier(n_estimators=150, max_depth=5, learning_rate=0.1,
+                GradientBoostingClassifier(n_estimators=80, max_depth=5, learning_rate=0.1,
                                            min_samples_leaf=5, random_state=42),
-                X_scaled, y, cv=5, scoring='accuracy'
+                X_scaled, y, cv=3, scoring='accuracy'
             )
 
             return {

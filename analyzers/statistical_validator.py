@@ -215,34 +215,40 @@ class StatisticalValidator:
 
         returns = np.diff(smoothed) / (smoothed[:-1] + 1e-6)
 
-        # Bootstrap resampling
-        trend_strengths = []
-        volatilities = []
-        efficiency_ratios = []
-        win_rates = []
-
         n = len(returns)
 
-        for _ in range(n_bootstrap):
-            # Resample returns with replacement
-            sample_idx = np.random.randint(0, n, size=n)
-            sample = returns[sample_idx]
+        # Heavily vectorized 2D Bootstrap Resampling
+        sample_idx = np.random.randint(0, n, size=(n_bootstrap, n))
+        samples = returns[sample_idx]  # shape: (n_bootstrap, n)
 
-            # Reconstruct price path
-            reconstructed = np.cumprod(1 + sample) * smoothed[0]
+        # Reconstruct price paths
+        reconstructed = np.cumprod(1 + samples, axis=1) * smoothed[0]  # shape: (n_bootstrap, n)
 
-            # Calculate metrics on resampled data
-            trend_strengths.append(self._calc_trend_r2(reconstructed))
-            volatilities.append(np.std(sample))
+        # 1. Trend strengths (R^2) via Pearson correlation coefficient squared
+        x = np.arange(n)
+        x_mean = np.mean(x)
+        x_dev = x - x_mean
+        x_var = np.sum(x_dev**2)
 
-            net = abs(reconstructed[-1] - reconstructed[0])
-            path = np.sum(np.abs(np.diff(reconstructed)))
-            efficiency_ratios.append(net / path if path > 0 else 0)
+        y_mean = np.mean(reconstructed, axis=1, keepdims=True)
+        y_dev = reconstructed - y_mean
+        y_var = np.sum(y_dev**2, axis=1)
 
-            # Win rate: what fraction of bars go in the trend direction
-            direction = 1 if reconstructed[-1] > reconstructed[0] else -1
-            wins = sum(1 for r in sample if np.sign(r) == direction)
-            win_rates.append(wins / n)
+        covariance = np.sum(y_dev * x_dev, axis=1)
+        trend_strengths = np.where(y_var > 0, (covariance ** 2) / (x_var * y_var + 1e-12), 0.0)
+
+        # 2. Volatilities
+        volatilities = np.std(samples, axis=1)
+
+        # 3. Efficiency ratios
+        net = np.abs(reconstructed[:, -1] - reconstructed[:, 0])
+        path = np.sum(np.abs(np.diff(reconstructed, axis=1)), axis=1)
+        efficiency_ratios = np.where(path > 0, net / path, 0.0)
+
+        # 4. Win rates
+        direction = np.where(reconstructed[:, -1] > reconstructed[:, 0], 1.0, -1.0)[:, np.newaxis]
+        wins = np.sum(np.sign(samples) == direction, axis=1)
+        win_rates = wins / n
 
         results = {}
 
