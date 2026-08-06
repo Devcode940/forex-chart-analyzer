@@ -15,9 +15,8 @@ This prevents overfitting and gives realistic expected performance.
 import warnings
 
 import numpy as np
+import sklearn.metrics as skm
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
-from sklearn.metrics import (accuracy_score, f1_score, precision_score,
-                             recall_score)
 from sklearn.preprocessing import StandardScaler
 
 warnings.filterwarnings("ignore")
@@ -92,10 +91,10 @@ class WalkForwardValidator:
             all_actuals.extend(y_test.tolist())
 
             # Window metrics
-            acc = accuracy_score(y_test, predictions)
-            prec = precision_score(y_test, predictions, zero_division=0)
-            rec = recall_score(y_test, predictions, zero_division=0)
-            f1 = f1_score(y_test, predictions, zero_division=0)
+            acc = skm.accuracy_score(y_test, predictions)
+            prec = skm.precision_score(y_test, predictions, zero_division=0)
+            rec = skm.recall_score(y_test, predictions, zero_division=0)
+            f1 = skm.f1_score(y_test, predictions, zero_division=0)
 
             # Simulated P&L
             pnl = self._simulate_pnl(probabilities, y_test)
@@ -119,11 +118,11 @@ class WalkForwardValidator:
 
         # Aggregate results
         if all_predictions and all_actuals:
-            overall_acc = accuracy_score(all_actuals, all_predictions)
-            overall_prec = precision_score(
+            overall_acc = skm.accuracy_score(all_actuals, all_predictions)
+            overall_prec = skm.precision_score(
                 all_actuals, all_predictions, zero_division=0
             )
-            overall_f1 = f1_score(all_actuals, all_predictions, zero_division=0)
+            overall_f1 = skm.f1_score(all_actuals, all_predictions, zero_division=0)
         else:
             overall_acc = 0
             overall_prec = 0
