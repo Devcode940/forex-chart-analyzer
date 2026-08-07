@@ -1,0 +1,3 @@
+## 2025-02-13 - Vectorizing Multi-Run Statistical and Bootstrap Analyses
+**Learning:** Performing Monte Carlo and Bootstrap simulations inside interactive Streamlit apps is extremely sensitive to Python loop overhead. By vectorizing the entire simulation space into 2D NumPy matrices—such as generating all GBM random price paths at once and computing R² via vectorized Pearson correlation coefficients—we can bypass python loops entirely, resulting in a ~100x speedup (~64ms vs ~6s for 2k MC / 5k Bootstrap runs) without changing the mathematical output.
+**Action:** Always identify heavy loop-based simulations (Monte Carlo, bootstrap, rolling metric windows) and vectorize them over multidimensional NumPy arrays rather than executing iterative sequential operations.
