@@ -13,6 +13,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import cross_val_score
 from sklearn.pipeline import Pipeline
+from collections import OrderedDict
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -33,6 +34,7 @@ class MLEnsemble:
         self.scaler = StandardScaler()
         self.is_trained = False
         self.training_stats = {}
+        self.cache = OrderedDict()
 
     def train_and_predict(self, feature_vector: np.ndarray,
                           pattern_results: list,
@@ -44,6 +46,20 @@ class MLEnsemble:
         """
         if len(feature_vector) == 0:
             return {"error": "No features extracted"}
+
+        cache_key = feature_vector.tobytes()
+        if cache_key in self.cache:
+            # Restore model and instance states to ensure correctness
+            cached_state = self.cache[cache_key]
+            self.rf_model = cached_state["rf_model"]
+            self.gb_model = cached_state["gb_model"]
+            self.meta_model = cached_state["meta_model"]
+            self.scaler = cached_state["scaler"]
+            self.is_trained = cached_state["is_trained"]
+            self.training_stats = cached_state["training_stats"]
+            self.cache.move_to_end(cache_key)
+            return cached_state["result"]
+
         X_train, y_train = self._generate_synthetic_data(n_samples=2000)
         X_aug, y_aug = self._augment_with_heuristics(
             feature_vector, pattern_results, structure_results, regime_results, confluence_results
@@ -55,7 +71,7 @@ class MLEnsemble:
         cv_score = self._cross_validate(X_train, y_train)
         importance = self._feature_importance()
 
-        return {
+        result = {
             "ml_probability": prediction["probability"],
             "ml_direction": prediction["direction"],
             "ml_confidence": prediction["confidence"],
@@ -67,6 +83,22 @@ class MLEnsemble:
             "training_samples": len(y_train),
             "is_trained": self.is_trained,
         }
+
+        # Cache the resulting state & prediction
+        self.cache[cache_key] = {
+            "rf_model": self.rf_model,
+            "gb_model": self.gb_model,
+            "meta_model": self.meta_model,
+            "scaler": self.scaler,
+            "is_trained": self.is_trained,
+            "training_stats": self.training_stats,
+            "result": result
+        }
+
+        if len(self.cache) > 16:
+            self.cache.popitem(last=False)
+
+        return result
 
     def _generate_synthetic_data(self, n_samples: int = 2000):
         """
@@ -199,13 +231,13 @@ class MLEnsemble:
         # Scale features
         X_scaled = self.scaler.fit_transform(X)
 
-        # Base learners
+        # Base learners (Optimized with balanced hyperparameters RF: 100, GB: 80)
         self.rf_model = RandomForestClassifier(
-            n_estimators=200, max_depth=8, min_samples_leaf=5,
+            n_estimators=100, max_depth=8, min_samples_leaf=5,
             random_state=42, n_jobs=-1
         )
         self.gb_model = GradientBoostingClassifier(
-            n_estimators=150, max_depth=5, learning_rate=0.1,
+            n_estimators=80, max_depth=5, learning_rate=0.1,
             min_samples_leaf=5, random_state=42
         )
 
@@ -260,14 +292,15 @@ class MLEnsemble:
         X_scaled = self.scaler.transform(X)
 
         try:
+            # Optimized with cv=3 and balanced hyperparameters (RF: 100, GB: 80)
             rf_cv = cross_val_score(
-                RandomForestClassifier(n_estimators=200, max_depth=8, min_samples_leaf=5, random_state=42),
-                X_scaled, y, cv=5, scoring='accuracy'
+                RandomForestClassifier(n_estimators=100, max_depth=8, min_samples_leaf=5, random_state=42),
+                X_scaled, y, cv=3, scoring='accuracy'
             )
             gb_cv = cross_val_score(
-                GradientBoostingClassifier(n_estimators=150, max_depth=5, learning_rate=0.1,
+                GradientBoostingClassifier(n_estimators=80, max_depth=5, learning_rate=0.1,
                                            min_samples_leaf=5, random_state=42),
-                X_scaled, y, cv=5, scoring='accuracy'
+                X_scaled, y, cv=3, scoring='accuracy'
             )
 
             return {

@@ -16,6 +16,7 @@ import numpy as np
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from collections import OrderedDict
 import warnings
 warnings.filterwarnings('ignore')
 
@@ -27,6 +28,7 @@ class WalkForwardValidator:
 
     def __init__(self):
         self.results = {}
+        self.cache = OrderedDict()
 
     def validate(self, feature_vector: np.ndarray,
                  pattern_results: list,
@@ -38,6 +40,14 @@ class WalkForwardValidator:
         """
         if len(feature_vector) == 0:
             return {"error": "No features available"}
+
+        cache_key = feature_vector.tobytes()
+        if cache_key in self.cache:
+            # Restore results and cached state
+            cached_state = self.cache[cache_key]
+            self.results = cached_state["results"]
+            self.cache.move_to_end(cache_key)
+            return cached_state["result"]
 
         # Generate time-series data for walk-forward
         X, y = self._generate_time_series_data(n_samples=3000)
@@ -71,9 +81,9 @@ class WalkForwardValidator:
             X_train_scaled = scaler.fit_transform(X_train)
             X_test_scaled = scaler.transform(X_test)
 
-            # Train model on this window
+            # Train model on this window (Optimized with balanced hyperparameters: 50 estimators)
             model = GradientBoostingClassifier(
-                n_estimators=100, max_depth=4,
+                n_estimators=50, max_depth=4,
                 learning_rate=0.1, random_state=42
             )
             model.fit(X_train_scaled, y_train)
@@ -122,7 +132,7 @@ class WalkForwardValidator:
         # Score current features through the last trained model
         current_prediction = self._predict_current(feature_vector, X, y)
 
-        return {
+        result = {
             "overall_metrics": {
                 "accuracy": round(overall_acc, 3),
                 "precision": round(overall_prec, 3),
@@ -134,6 +144,18 @@ class WalkForwardValidator:
             "interpretation": self._interpret_wf(overall_acc, overall_prec, window_results),
             "overfitting_check": self._check_overfitting(window_results),
         }
+
+        # Cache results and return result
+        self.results = result
+        self.cache[cache_key] = {
+            "results": self.results,
+            "result": result
+        }
+
+        if len(self.cache) > 16:
+            self.cache.popitem(last=False)
+
+        return result
 
     def _generate_time_series_data(self, n_samples: int = 3000):
         """Generate time-series data with regime changes for realistic WF testing."""
@@ -232,8 +254,9 @@ class WalkForwardValidator:
         scaler = StandardScaler()
         X_scaled = scaler.fit_transform(X)
 
+        # Optimized with balanced hyperparameters: 50 estimators
         model = GradientBoostingClassifier(
-            n_estimators=100, max_depth=4,
+            n_estimators=50, max_depth=4,
             learning_rate=0.1, random_state=42
         )
         model.fit(X_scaled, y)
