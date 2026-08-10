@@ -214,35 +214,38 @@ class StatisticalValidator:
             return {"error": "Insufficient data for bootstrap"}
 
         returns = np.diff(smoothed) / (smoothed[:-1] + 1e-6)
-
-        # Bootstrap resampling
-        trend_strengths = []
-        volatilities = []
-        efficiency_ratios = []
-        win_rates = []
-
         n = len(returns)
 
-        for _ in range(n_bootstrap):
-            # Resample returns with replacement
-            sample_idx = np.random.randint(0, n, size=n)
-            sample = returns[sample_idx]
+        # Vectorized resampling to avoid slow Python loop and np.polyfit calls
+        # 1. Generate all random indices at once
+        sample_indices = np.random.randint(0, n, size=(n_bootstrap, n))
+        samples = returns[sample_indices]
 
-            # Reconstruct price path
-            reconstructed = np.cumprod(1 + sample) * smoothed[0]
+        # 2. Reconstruct price paths in parallel
+        reconstructed_matrix = np.cumprod(1 + samples, axis=1) * smoothed[0]
 
-            # Calculate metrics on resampled data
-            trend_strengths.append(self._calc_trend_r2(reconstructed))
-            volatilities.append(np.std(sample))
+        # 3. Vectorized R² trend strength (Pearson correlation squared)
+        x_arr = np.arange(n)
+        x_mean = (n - 1) / 2.0
+        x_var = n * (n**2 - 1) / 12.0
+        y_means = np.mean(reconstructed_matrix, axis=1, keepdims=True)
+        cov = np.sum((x_arr - x_mean) * (reconstructed_matrix - y_means), axis=1)
+        y_vars = np.sum((reconstructed_matrix - y_means) ** 2, axis=1)
+        denom = np.sqrt(x_var * y_vars)
+        trend_strengths = np.where(denom > 0, (cov / denom) ** 2, 0.0)
 
-            net = abs(reconstructed[-1] - reconstructed[0])
-            path = np.sum(np.abs(np.diff(reconstructed)))
-            efficiency_ratios.append(net / path if path > 0 else 0)
+        # 4. Vectorized volatilities
+        volatilities = np.std(samples, axis=1)
 
-            # Win rate: what fraction of bars go in the trend direction
-            direction = 1 if reconstructed[-1] > reconstructed[0] else -1
-            wins = sum(1 for r in sample if np.sign(r) == direction)
-            win_rates.append(wins / n)
+        # 5. Vectorized efficiency ratios
+        net_vectorized = np.abs(reconstructed_matrix[:, -1] - reconstructed_matrix[:, 0])
+        path_vectorized = np.sum(np.abs(np.diff(reconstructed_matrix, axis=1)), axis=1)
+        efficiency_ratios = np.where(path_vectorized > 0, net_vectorized / path_vectorized, 0.0)
+
+        # 6. Vectorized win rates
+        direction_vec = np.where(reconstructed_matrix[:, -1] > reconstructed_matrix[:, 0], 1, -1)[:, np.newaxis]
+        wins_vec = np.sum(np.sign(samples) == direction_vec, axis=1)
+        win_rates = wins_vec / n
 
         results = {}
 
