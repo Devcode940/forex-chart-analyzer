@@ -13,10 +13,11 @@ They are expert-system approximations. This module adds statistical validation:
 7. Kelly-Optimal Position Sizing — based on ACTUAL (not estimated) edge
 """
 
+from typing import Dict, List, Optional, Tuple
+
 import numpy as np
 from scipy import stats
 from scipy.special import comb
-from typing import List, Dict, Tuple, Optional
 
 
 class StatisticalValidator:
