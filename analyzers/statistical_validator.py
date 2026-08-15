@@ -215,34 +215,40 @@ class StatisticalValidator:
 
         returns = np.diff(smoothed) / (smoothed[:-1] + 1e-6)
 
-        # Bootstrap resampling
-        trend_strengths = []
-        volatilities = []
-        efficiency_ratios = []
-        win_rates = []
-
+        # Fully vectorized 2D bootstrap resampling across all n_bootstrap iterations
         n = len(returns)
+        sample_idx = np.random.randint(0, n, size=(n_bootstrap, n))
+        samples = returns[sample_idx]  # Shape: (n_bootstrap, n)
 
-        for _ in range(n_bootstrap):
-            # Resample returns with replacement
-            sample_idx = np.random.randint(0, n, size=n)
-            sample = returns[sample_idx]
+        # Reconstruct price paths for all resamples simultaneously
+        reconstructed = np.cumprod(1 + samples, axis=1) * smoothed[0]  # Shape: (n_bootstrap, n)
 
-            # Reconstruct price path
-            reconstructed = np.cumprod(1 + sample) * smoothed[0]
+        # Volatilities across each resampled return path
+        volatilities = np.std(samples, axis=1)
 
-            # Calculate metrics on resampled data
-            trend_strengths.append(self._calc_trend_r2(reconstructed))
-            volatilities.append(np.std(sample))
+        # Efficiency ratios: net displacement / path length
+        nets = np.abs(reconstructed[:, -1] - reconstructed[:, 0])
+        paths = np.sum(np.abs(np.diff(reconstructed, axis=1)), axis=1)
+        efficiency_ratios = np.where(paths > 0, nets / paths, 0.0)
 
-            net = abs(reconstructed[-1] - reconstructed[0])
-            path = np.sum(np.abs(np.diff(reconstructed)))
-            efficiency_ratios.append(net / path if path > 0 else 0)
+        # Win rates: fraction of bars moving in the overall trend direction
+        directions = np.where(reconstructed[:, -1] > reconstructed[:, 0], 1, -1)
+        r_signs = np.sign(samples)
+        wins = np.sum(r_signs == directions[:, None], axis=1)
+        win_rates = wins / n
 
-            # Win rate: what fraction of bars go in the trend direction
-            direction = 1 if reconstructed[-1] > reconstructed[0] else -1
-            wins = sum(1 for r in sample if np.sign(r) == direction)
-            win_rates.append(wins / n)
+        # Trend R² via vectorized linear regression formulas over 2D array
+        x = np.arange(reconstructed.shape[1])
+        x_dev = x - np.mean(x)
+        x_var = np.sum(x_dev**2)
+
+        y_mean = np.mean(reconstructed, axis=1, keepdims=True)
+        y_dev = reconstructed - y_mean
+
+        cov = np.sum(y_dev * x_dev, axis=1)
+        ss_tot = np.sum(y_dev**2, axis=1)
+
+        trend_strengths = np.where(ss_tot > 0, (cov**2) / (x_var * ss_tot), 0.0)
 
         results = {}
 
