@@ -16,8 +16,6 @@ import streamlit as st
 from PIL import Image
 from plotly.subplots import make_subplots
 
-sys.path.insert(0, os.path.dirname(__file__))
-
 from analyzers.candlestick_detector import CandlestickDetector
 from analyzers.confluence_engine import ConfluenceEngine
 from analyzers.divergence_detector import DivergenceDetector
@@ -44,6 +42,9 @@ from analyzers.statistical_validator import StatisticalValidator
 from analyzers.structure_analyzer import StructureAnalyzer
 from analyzers.trade_database import TradeDatabase
 from utils.visualizer import Visualizer
+
+sys.path.insert(0, os.path.dirname(__file__))
+
 
 # Page Config
 st.set_page_config(
@@ -792,8 +793,7 @@ if uploaded_file is not None:
 
             # Show momentum oscillator
             if structure.get("price_series"):
-                from analyzers.divergence_detector import \
-                    DivergenceDetector as DD
+                from analyzers.divergence_detector import DivergenceDetector as DD
 
                 smoothed = np.array(structure["price_series"].get("smoothed", []))
                 if len(smoothed) > 14:
