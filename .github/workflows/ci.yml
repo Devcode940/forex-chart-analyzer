@@ -39,13 +39,13 @@ jobs:
           # Dev tools for linting and static checks
           pip install --no-cache-dir black isort flake8 mypy pytest
 
+      - name: Run isort (format)
+        run: |
+          isort --profile black .
+
       - name: Run black (format)
         run: |
           black .
-
-      - name: Run isort (format)
-        run: |
-          isort .
 
       - name: Create branch and open PR if formatting changed
         id: pr
@@ -67,7 +67,7 @@ jobs:
         run: black --check .
 
       - name: Run isort (check)
-        run: isort --check-only .
+        run: isort --profile black --check-only .
 
       - name: Run flake8
         run: flake8 .
