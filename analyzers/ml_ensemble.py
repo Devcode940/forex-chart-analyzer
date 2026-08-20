@@ -7,15 +7,17 @@ then predicts the probability of a profitable trade for the current setup.
 Uses a stacked ensemble: Random Forest + Gradient Boosting → Meta-Learner.
 """
 
-from collections import OrderedDict
-import numpy as np
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import cross_val_score
-from sklearn.pipeline import Pipeline
 import warnings
-warnings.filterwarnings('ignore')
+from collections import OrderedDict
+
+import numpy as np
+from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import cross_val_score
+from sklearn.preprocessing import StandardScaler
+
+warnings.filterwarnings("ignore")
+
 
 class MLEnsemble:
     """
@@ -37,11 +39,14 @@ class MLEnsemble:
         self._cache = OrderedDict()
         self._cache_capacity = 16
 
-    def train_and_predict(self, feature_vector: np.ndarray,
-                          pattern_results: list,
-                          structure_results: dict,
-                          regime_results: dict,
-                          confluence_results: dict) -> dict:
+    def train_and_predict(
+        self,
+        feature_vector: np.ndarray,
+        pattern_results: list,
+        structure_results: dict,
+        regime_results: dict,
+        confluence_results: dict,
+    ) -> dict:
         """
         Full ML pipeline: generate data, train, predict.
         Uses OrderedDict caching to avoid redundant model fitting.
@@ -50,8 +55,11 @@ class MLEnsemble:
             return {"error": "No features extracted"}
 
         cache_key = self._make_cache_key(
-            feature_vector, pattern_results, structure_results,
-            regime_results, confluence_results
+            feature_vector,
+            pattern_results,
+            structure_results,
+            regime_results,
+            confluence_results,
         )
         if cache_key in self._cache:
             cached_state, cached_res = self._cache[cache_key]
@@ -66,7 +74,11 @@ class MLEnsemble:
 
         X_train, y_train = self._generate_synthetic_data(n_samples=2000)
         X_aug, y_aug = self._augment_with_heuristics(
-            feature_vector, pattern_results, structure_results, regime_results, confluence_results
+            feature_vector,
+            pattern_results,
+            structure_results,
+            regime_results,
+            confluence_results,
         )
         X_train = np.vstack([X_train, X_aug])
         y_train = np.concatenate([y_train, y_aug])
@@ -123,7 +135,9 @@ class MLEnsemble:
 
         for i in range(n_samples):
             # Generate base returns distribution
-            trend_type = np.random.choice(["bullish", "bearish", "ranging", "volatile"], p=[0.3, 0.3, 0.25, 0.15])
+            trend_type = np.random.choice(
+                ["bullish", "bearish", "ranging", "volatile"], p=[0.3, 0.3, 0.25, 0.15]
+            )
 
             if trend_type == "bullish":
                 mu, sigma = 0.002, 0.008
@@ -140,41 +154,53 @@ class MLEnsemble:
 
             # Momentum features (0-9)
             ret = np.random.normal(mu, sigma, 20)
-            X[i, 0] = ret[-1]           # return_1
+            X[i, 0] = ret[-1]  # return_1
             X[i, 1] = np.sum(ret[-5:])  # return_5
-            X[i, 2] = np.sum(ret[-10:]) # return_10
-            X[i, 3] = np.sum(ret)       # return_20
+            X[i, 2] = np.sum(ret[-10:])  # return_10
+            X[i, 3] = np.sum(ret)  # return_20
             X[i, 4] = np.sum(ret[-5:])  # momentum_5
-            X[i, 5] = np.sum(ret[-10:]) # momentum_10
-            X[i, 6] = np.sum(ret)       # momentum_20
+            X[i, 5] = np.sum(ret[-10:])  # momentum_10
+            X[i, 6] = np.sum(ret)  # momentum_20
             base_price = 1.0
-            X[i, 7] = (ret[-5:].sum() / base_price * 100) if base_price > 0 else 0  # roc_5
-            X[i, 8] = (ret[-10:].sum() / base_price * 100) if base_price > 0 else 0 # roc_10
-            X[i, 9] = (ret.sum() / base_price * 100) if base_price > 0 else 0       # roc_20
+            X[i, 7] = (
+                (ret[-5:].sum() / base_price * 100) if base_price > 0 else 0
+            )  # roc_5
+            X[i, 8] = (
+                (ret[-10:].sum() / base_price * 100) if base_price > 0 else 0
+            )  # roc_10
+            X[i, 9] = (ret.sum() / base_price * 100) if base_price > 0 else 0  # roc_20
 
             # Volatility features (10-19)
-            X[i, 10] = np.std(ret[-5:])    # vol_5
-            X[i, 11] = np.std(ret[-10:])   # vol_10
-            X[i, 12] = np.std(ret)         # vol_20
-            X[i, 13] = sigma * 1.5         # vol_50
-            X[i, 14] = sigma * 10          # atr_approx
+            X[i, 10] = np.std(ret[-5:])  # vol_5
+            X[i, 11] = np.std(ret[-10:])  # vol_10
+            X[i, 12] = np.std(ret)  # vol_20
+            X[i, 13] = sigma * 1.5  # vol_50
+            X[i, 14] = sigma * 10  # atr_approx
             X[i, 15] = X[i, 10] / (X[i, 12] + 1e-8)  # vol_ratio_5_20
-            X[i, 16] = np.random.uniform(0.1, 0.5)    # upper_wick_ratio
-            X[i, 17] = np.random.uniform(0.1, 0.5)    # lower_wick_ratio
-            X[i, 18] = np.random.uniform(0.3, 0.9)    # body_ratio
-            X[i, 19] = np.random.uniform(0.001, 0.01) # range_ratio
+            X[i, 16] = np.random.uniform(0.1, 0.5)  # upper_wick_ratio
+            X[i, 17] = np.random.uniform(0.1, 0.5)  # lower_wick_ratio
+            X[i, 18] = np.random.uniform(0.3, 0.9)  # body_ratio
+            X[i, 19] = np.random.uniform(0.001, 0.01)  # range_ratio
 
             # Trend features (20-29)
-            r2 = max(0, min(1, abs(mu) / (sigma + 1e-8) * 0.3 + np.random.normal(0, 0.1)))
-            X[i, 20] = r2                           # trend_r2
-            X[i, 21] = mu / (sigma + 1e-8)          # trend_slope
-            X[i, 22] = np.random.uniform(-0.1, 0.1) # trend_intercept
+            r2 = max(
+                0, min(1, abs(mu) / (sigma + 1e-8) * 0.3 + np.random.normal(0, 0.1))
+            )
+            X[i, 20] = r2  # trend_r2
+            X[i, 21] = mu / (sigma + 1e-8)  # trend_slope
+            X[i, 22] = np.random.uniform(-0.1, 0.1)  # trend_intercept
             X[i, 23] = mu * 100 + np.random.normal(0, 0.01)  # sma_slope_5
-            X[i, 24] = mu * 80 + np.random.normal(0, 0.01)   # sma_slope_10
-            X[i, 25] = mu * 50 + np.random.normal(0, 0.01)   # sma_slope_20
-            X[i, 26] = np.random.normal(0.01 if trend_type == "bullish" else -0.01, 0.02)  # price_vs_sma5
-            X[i, 27] = np.random.normal(0.01 if trend_type == "bullish" else -0.01, 0.02)  # price_vs_sma10
-            X[i, 28] = np.random.normal(0.01 if trend_type == "bullish" else -0.01, 0.02)  # price_vs_sma20
+            X[i, 24] = mu * 80 + np.random.normal(0, 0.01)  # sma_slope_10
+            X[i, 25] = mu * 50 + np.random.normal(0, 0.01)  # sma_slope_20
+            X[i, 26] = np.random.normal(
+                0.01 if trend_type == "bullish" else -0.01, 0.02
+            )  # price_vs_sma5
+            X[i, 27] = np.random.normal(
+                0.01 if trend_type == "bullish" else -0.01, 0.02
+            )  # price_vs_sma10
+            X[i, 28] = np.random.normal(
+                0.01 if trend_type == "bullish" else -0.01, 0.02
+            )  # price_vs_sma20
             X[i, 29] = abs(mu) / (sigma * 2 + 1e-8)  # efficiency_ratio
 
             # Structure features (30-39)
@@ -191,20 +217,21 @@ class MLEnsemble:
 
             # Statistical features (40-49)
             X[i, 40] = np.random.normal(0, 0.5)  # skewness
-            X[i, 41] = np.random.normal(0, 1)    # kurtosis
+            X[i, 41] = np.random.normal(0, 1)  # kurtosis
             X[i, 42] = mu / (sigma + 1e-8) * np.sqrt(252)  # sharpe_approx
             X[i, 43] = mu / (sigma + 1e-8) * np.sqrt(252)  # sortino_approx
             X[i, 44] = np.random.uniform(-0.15, -0.01)  # max_drawdown
             X[i, 45] = -sigma * 1.65  # var_95
-            X[i, 46] = -sigma * 2.0   # cvar_95
+            X[i, 46] = -sigma * 2.0  # cvar_95
             X[i, 47] = np.random.uniform(0.3, 0.7)  # hurst_exponent
             X[i, 48] = np.random.uniform(0.2, 0.8)  # mean_reversion_score
             X[i, 49] = np.random.uniform(-0.2, 0.2)  # serial_correlation
 
         return X, y
 
-    def _augment_with_heuristics(self, feature_vector, patterns, structure,
-                                  regime, confluence):
+    def _augment_with_heuristics(
+        self, feature_vector, patterns, structure, regime, confluence
+    ):
         """Create augmented samples from heuristic signal strengths."""
         n_aug = 200
         X_aug = np.tile(feature_vector, (n_aug, 1))
@@ -235,12 +262,18 @@ class MLEnsemble:
 
         # Base learners - optimized estimator counts for speed and accuracy
         self.rf_model = RandomForestClassifier(
-            n_estimators=100, max_depth=8, min_samples_leaf=5,
-            random_state=42, n_jobs=-1
+            n_estimators=100,
+            max_depth=8,
+            min_samples_leaf=5,
+            random_state=42,
+            n_jobs=-1,
         )
         self.gb_model = GradientBoostingClassifier(
-            n_estimators=80, max_depth=5, learning_rate=0.1,
-            min_samples_leaf=5, random_state=42
+            n_estimators=80,
+            max_depth=5,
+            learning_rate=0.1,
+            min_samples_leaf=5,
+            random_state=42,
         )
 
         # Train base learners
@@ -296,13 +329,30 @@ class MLEnsemble:
         try:
             # Optimized 3-fold cross validation with parallel RF execution
             rf_cv = cross_val_score(
-                RandomForestClassifier(n_estimators=100, max_depth=8, min_samples_leaf=5, random_state=42, n_jobs=-1),
-                X_scaled, y, cv=3, scoring='accuracy'
+                RandomForestClassifier(
+                    n_estimators=100,
+                    max_depth=8,
+                    min_samples_leaf=5,
+                    random_state=42,
+                    n_jobs=-1,
+                ),
+                X_scaled,
+                y,
+                cv=3,
+                scoring="accuracy",
             )
             gb_cv = cross_val_score(
-                GradientBoostingClassifier(n_estimators=80, max_depth=5, learning_rate=0.1,
-                                           min_samples_leaf=5, random_state=42),
-                X_scaled, y, cv=3, scoring='accuracy'
+                GradientBoostingClassifier(
+                    n_estimators=80,
+                    max_depth=5,
+                    learning_rate=0.1,
+                    min_samples_leaf=5,
+                    random_state=42,
+                ),
+                X_scaled,
+                y,
+                cv=3,
+                scoring="accuracy",
             )
 
             return {
@@ -310,10 +360,19 @@ class MLEnsemble:
                 "rf_cv_std": round(float(np.std(rf_cv)), 4),
                 "gb_cv_mean": round(float(np.mean(gb_cv)), 4),
                 "gb_cv_std": round(float(np.std(gb_cv)), 4),
-                "ensemble_estimate": round(float(np.mean([np.mean(rf_cv), np.mean(gb_cv)])), 4),
+                "ensemble_estimate": round(
+                    float(np.mean([np.mean(rf_cv), np.mean(gb_cv)])), 4
+                ),
             }
         except Exception as e:
-            return {"rf_cv_mean": 0, "rf_cv_std": 0, "gb_cv_mean": 0, "gb_cv_std": 0, "ensemble_estimate": 0, "cv_error": str(e)}
+            return {
+                "rf_cv_mean": 0,
+                "rf_cv_std": 0,
+                "gb_cv_mean": 0,
+                "gb_cv_std": 0,
+                "ensemble_estimate": 0,
+                "cv_error": str(e),
+            }
 
     def _feature_importance(self) -> list:
         """Get feature importance from both models."""
@@ -338,11 +397,14 @@ class MLEnsemble:
             for idx in top_indices
         ]
 
-    def _make_cache_key(self, feature_vector: np.ndarray,
-                        pattern_results: list,
-                        structure_results: dict,
-                        regime_results: dict,
-                        confluence_results: dict) -> tuple:
+    def _make_cache_key(
+        self,
+        feature_vector: np.ndarray,
+        pattern_results: list,
+        structure_results: dict,
+        regime_results: dict,
+        confluence_results: dict,
+    ) -> tuple:
         import json
 
         def default_serializer(o):
@@ -355,12 +417,17 @@ class MLEnsemble:
         ctx_str = json.dumps(
             [pattern_results, structure_results, regime_results, confluence_results],
             sort_keys=True,
-            default=default_serializer
+            default=default_serializer,
         )
-        return (feature_vector.shape, feature_vector.dtype.str, feature_vector.tobytes(), ctx_str)
+        return (
+            feature_vector.shape,
+            feature_vector.dtype.str,
+            feature_vector.tobytes(),
+            ctx_str,
+        )
 
     def _feature_name(self, idx: int) -> str:
         from analyzers.ml_feature_engineer import FeatureEngineer
+
         names = FeatureEngineer.FEATURE_NAMES
         return names[idx] if idx < len(names) else f"feature_{idx}"
-
