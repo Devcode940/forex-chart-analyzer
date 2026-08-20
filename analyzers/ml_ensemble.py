@@ -7,6 +7,7 @@ then predicts the probability of a profitable trade for the current setup.
 Uses a stacked ensemble: Random Forest + Gradient Boosting → Meta-Learner.
 """
 
+from collections import OrderedDict
 import numpy as np
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
@@ -33,6 +34,8 @@ class MLEnsemble:
         self.scaler = StandardScaler()
         self.is_trained = False
         self.training_stats = {}
+        self._cache = OrderedDict()
+        self._cache_capacity = 16
 
     def train_and_predict(self, feature_vector: np.ndarray,
                           pattern_results: list,
@@ -41,9 +44,26 @@ class MLEnsemble:
                           confluence_results: dict) -> dict:
         """
         Full ML pipeline: generate data, train, predict.
+        Uses OrderedDict caching to avoid redundant model fitting.
         """
         if len(feature_vector) == 0:
             return {"error": "No features extracted"}
+
+        cache_key = self._make_cache_key(
+            feature_vector, pattern_results, structure_results,
+            regime_results, confluence_results
+        )
+        if cache_key in self._cache:
+            cached_state, cached_res = self._cache[cache_key]
+            self._cache.move_to_end(cache_key)
+            self.rf_model = cached_state["rf_model"]
+            self.gb_model = cached_state["gb_model"]
+            self.meta_model = cached_state["meta_model"]
+            self.scaler = cached_state["scaler"]
+            self.is_trained = cached_state["is_trained"]
+            self.training_stats = cached_state["training_stats"]
+            return cached_res
+
         X_train, y_train = self._generate_synthetic_data(n_samples=2000)
         X_aug, y_aug = self._augment_with_heuristics(
             feature_vector, pattern_results, structure_results, regime_results, confluence_results
@@ -55,7 +75,7 @@ class MLEnsemble:
         cv_score = self._cross_validate(X_train, y_train)
         importance = self._feature_importance()
 
-        return {
+        res = {
             "ml_probability": prediction["probability"],
             "ml_direction": prediction["direction"],
             "ml_confidence": prediction["confidence"],
@@ -67,6 +87,20 @@ class MLEnsemble:
             "training_samples": len(y_train),
             "is_trained": self.is_trained,
         }
+
+        cached_state = {
+            "rf_model": self.rf_model,
+            "gb_model": self.gb_model,
+            "meta_model": self.meta_model,
+            "scaler": self.scaler,
+            "is_trained": self.is_trained,
+            "training_stats": self.training_stats,
+        }
+        self._cache[cache_key] = (cached_state, res)
+        if len(self._cache) > self._cache_capacity:
+            self._cache.popitem(last=False)
+
+        return res
 
     def _generate_synthetic_data(self, n_samples: int = 2000):
         """
@@ -199,13 +233,13 @@ class MLEnsemble:
         # Scale features
         X_scaled = self.scaler.fit_transform(X)
 
-        # Base learners
+        # Base learners - optimized estimator counts for speed and accuracy
         self.rf_model = RandomForestClassifier(
-            n_estimators=200, max_depth=8, min_samples_leaf=5,
+            n_estimators=100, max_depth=8, min_samples_leaf=5,
             random_state=42, n_jobs=-1
         )
         self.gb_model = GradientBoostingClassifier(
-            n_estimators=150, max_depth=5, learning_rate=0.1,
+            n_estimators=80, max_depth=5, learning_rate=0.1,
             min_samples_leaf=5, random_state=42
         )
 
@@ -260,14 +294,15 @@ class MLEnsemble:
         X_scaled = self.scaler.transform(X)
 
         try:
+            # Optimized 3-fold cross validation with parallel RF execution
             rf_cv = cross_val_score(
-                RandomForestClassifier(n_estimators=200, max_depth=8, min_samples_leaf=5, random_state=42),
-                X_scaled, y, cv=5, scoring='accuracy'
+                RandomForestClassifier(n_estimators=100, max_depth=8, min_samples_leaf=5, random_state=42, n_jobs=-1),
+                X_scaled, y, cv=3, scoring='accuracy'
             )
             gb_cv = cross_val_score(
-                GradientBoostingClassifier(n_estimators=150, max_depth=5, learning_rate=0.1,
+                GradientBoostingClassifier(n_estimators=80, max_depth=5, learning_rate=0.1,
                                            min_samples_leaf=5, random_state=42),
-                X_scaled, y, cv=5, scoring='accuracy'
+                X_scaled, y, cv=3, scoring='accuracy'
             )
 
             return {
@@ -302,6 +337,27 @@ class MLEnsemble:
             }
             for idx in top_indices
         ]
+
+    def _make_cache_key(self, feature_vector: np.ndarray,
+                        pattern_results: list,
+                        structure_results: dict,
+                        regime_results: dict,
+                        confluence_results: dict) -> tuple:
+        import json
+
+        def default_serializer(o):
+            if isinstance(o, np.ndarray):
+                return o.tolist()
+            if isinstance(o, (np.integer, np.floating)):
+                return float(o)
+            return str(o)
+
+        ctx_str = json.dumps(
+            [pattern_results, structure_results, regime_results, confluence_results],
+            sort_keys=True,
+            default=default_serializer
+        )
+        return (feature_vector.shape, feature_vector.dtype.str, feature_vector.tobytes(), ctx_str)
 
     def _feature_name(self, idx: int) -> str:
         from analyzers.ml_feature_engineer import FeatureEngineer
