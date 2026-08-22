@@ -287,4 +287,3 @@ class ImageProcessor:
             "channels": image.shape[2] if len(image.shape) == 3 else 1,
             "mean_brightness": np.mean(self.gray_image) if self.gray_image is not None else 0,
         }
-

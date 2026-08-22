@@ -214,4 +214,3 @@ class MLAnomalyDetector:
             "EXTREME": f"Risk multiplier: {risk_mult}×. Consider staying flat. If you must trade, use minimum size and very wide stops. Pattern reliability is LOW.",
         }
         return recs.get(level, "Proceed with caution.")
-

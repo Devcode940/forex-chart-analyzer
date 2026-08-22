@@ -238,4 +238,3 @@ class FibonacciCalculator:
                 })
 
         return confluences
-

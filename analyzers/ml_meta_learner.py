@@ -256,4 +256,3 @@ class MetaLearner:
             "recommended_risk_pct": round(risk, 2),
             "position_strength": "FULL" if risk >= 0.85 else "REDUCED" if risk >= 0.5 else "SMALL" if risk >= 0.25 else "NONE",
         }
-

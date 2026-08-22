@@ -316,4 +316,3 @@ class Visualizer:
             draw.text((10, 80 + i * 18), line, fill=(180, 180, 180, 255))
 
         return np.array(pil_canvas)
-
