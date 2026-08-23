@@ -11,12 +11,15 @@ Platt Scaling: Fits a sigmoid to map raw scores → calibrated probabilities
 Isotonic Regression: Fits a monotonic step function (more flexible)
 """
 
+import warnings
+
 import numpy as np
 from sklearn.isotonic import IsotonicRegression
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
-import warnings
-warnings.filterwarnings('ignore')
+
+warnings.filterwarnings("ignore")
+
 
 class CalibrationEngine:
     """
@@ -38,7 +41,7 @@ class CalibrationEngine:
         pattern_results: list,
         structure_results: dict,
         regime_results: dict,
-        feature_vector: np.ndarray = None
+        feature_vector: np.ndarray = None,
     ) -> dict:
         """
         Full calibration pipeline:
@@ -68,7 +71,9 @@ class CalibrationEngine:
                 "isotonic_calibrated": round(iso_cal, 3),
                 "best_calibrated": round(avg_cal, 3),
                 "adjustment": round(avg_cal - raw_score, 3),
-                "direction": "OVERCONFIDENT" if raw_score > avg_cal else "UNDERCONFIDENT",
+                "direction": (
+                    "OVERCONFIDENT" if raw_score > avg_cal else "UNDERCONFIDENT"
+                ),
             }
         main_raw = confluence_results.get("master", {}).get("confidence", 0)
         main_platt = float(self.platt_model.predict_proba([[main_raw]])[0, 1])
@@ -82,16 +87,24 @@ class CalibrationEngine:
                 "isotonic_calibrated": round(main_iso, 3),
                 "best_calibrated": round(main_calibrated, 3),
                 "adjustment": round(main_calibrated - main_raw, 3),
-                "direction": "OVERCONFIDENT" if main_raw > main_calibrated else "UNDERCONFIDENT",
+                "direction": (
+                    "OVERCONFIDENT" if main_raw > main_calibrated else "UNDERCONFIDENT"
+                ),
                 "is_overconfident": main_raw > main_calibrated,
                 "warning": (
-                    f"⚠️ Your engine claims {main_raw:.0%} confidence, but calibration suggests "
-                    f"the true probability is {main_calibrated:.0%}. "
-                    f"{'Reduce position size.' if main_raw > main_calibrated else 'Signal may be stronger than scored.'}"
-                ) if abs(main_calibrated - main_raw) > 0.05 else None,
+                    (
+                        f"⚠️ Your engine claims {main_raw:.0%} confidence, but calibration suggests "
+                        f"the true probability is {main_calibrated:.0%}. "
+                        f"{'Reduce position size.' if main_raw > main_calibrated else 'Signal may be stronger than scored.'}"
+                    )
+                    if abs(main_calibrated - main_raw) > 0.05
+                    else None
+                ),
             },
             "individual_scores": calibrated,
-            "calibration_quality": self._assess_calibration(raw_scores, actual_outcomes),
+            "calibration_quality": self._assess_calibration(
+                raw_scores, actual_outcomes
+            ),
             "reliability_diagram": self._reliability_data(raw_scores, actual_outcomes),
         }
 
@@ -149,7 +162,7 @@ class CalibrationEngine:
         self.platt_model.fit(X, actual_outcomes)
 
         # Isotonic Regression (non-parametric monotonic fit)
-        self.isotonic_model = IsotonicRegression(y_min=0, y_max=1, out_of_bounds='clip')
+        self.isotonic_model = IsotonicRegression(y_min=0, y_max=1, out_of_bounds="clip")
         self.isotonic_model.fit(raw_scores, actual_outcomes)
 
     def _assess_calibration(self, raw_scores, actual_outcomes) -> dict:
@@ -177,7 +190,9 @@ class CalibrationEngine:
 
         if ece < 0.05:
             quality = "EXCELLENT"
-            note = "Calibration error is very low — calibrated probabilities are reliable."
+            note = (
+                "Calibration error is very low — calibrated probabilities are reliable."
+            )
         elif ece < 0.10:
             quality = "GOOD"
             note = "Calibration is good — probabilities are approximately correct."
@@ -207,12 +222,17 @@ class CalibrationEngine:
             n_in_bin = np.sum(mask)
 
             if n_in_bin > 5:
-                diagram.append({
-                    "predicted_probability": round(float(np.mean(platt_preds[mask])), 3),
-                    "actual_frequency": round(float(np.mean(actual_outcomes[mask])), 3),
-                    "n_samples": int(n_in_bin),
-                    "bin_center": round(float((bins[i] + bins[i + 1]) / 2), 3),
-                })
+                diagram.append(
+                    {
+                        "predicted_probability": round(
+                            float(np.mean(platt_preds[mask])), 3
+                        ),
+                        "actual_frequency": round(
+                            float(np.mean(actual_outcomes[mask])), 3
+                        ),
+                        "n_samples": int(n_in_bin),
+                        "bin_center": round(float((bins[i] + bins[i + 1]) / 2), 3),
+                    }
+                )
 
         return diagram
-
