@@ -13,11 +13,7 @@ They are expert-system approximations. This module adds statistical validation:
 7. Kelly-Optimal Position Sizing — based on ACTUAL (not estimated) edge
 """
 
-from typing import Dict, List, Optional, Tuple
-
 import numpy as np
-from scipy import stats
-from scipy.special import comb
 
 
 class StatisticalValidator:
@@ -59,7 +55,6 @@ class StatisticalValidator:
         returns = np.diff(smoothed) / (smoothed[:-1] + 1e-6)
         mu = np.mean(returns)
         sigma = np.std(returns)
-        last_price = smoothed[-1]
         pattern_name = pattern_results[0]["name"] if pattern_results else "Unknown"
         pattern_direction = (
             pattern_results[0].get("target_direction", "PENDING")
@@ -600,9 +595,6 @@ class StatisticalValidator:
 
         # 5. Confluence analysis (from existing engine)
         confluence_grade = confluence_results.get("master", {}).get("grade", "D")
-        confluence_direction = confluence_results.get("master", {}).get(
-            "direction", "NEUTRAL"
-        )
         confluence_conf = confluence_results.get("master", {}).get("confidence", 0)
 
         # 6. FINAL VERDICT — aggregate all methods
