@@ -214,35 +214,38 @@ class StatisticalValidator:
             return {"error": "Insufficient data for bootstrap"}
 
         returns = np.diff(smoothed) / (smoothed[:-1] + 1e-6)
-
-        # Bootstrap resampling
-        trend_strengths = []
-        volatilities = []
-        efficiency_ratios = []
-        win_rates = []
-
         n = len(returns)
 
-        for _ in range(n_bootstrap):
-            # Resample returns with replacement
-            sample_idx = np.random.randint(0, n, size=n)
-            sample = returns[sample_idx]
+        # 2D Vectorized Bootstrap Resampling (⚡ Bolt: Fully vectorized across all n_bootstrap resamples)
+        sample_idx = np.random.randint(0, n, size=(n_bootstrap, n))
+        samples = returns[sample_idx]  # shape: (n_bootstrap, n)
 
-            # Reconstruct price path
-            reconstructed = np.cumprod(1 + sample) * smoothed[0]
+        # Reconstruct price paths for all resamples at once
+        reconstructed = np.cumprod(1 + samples, axis=1) * smoothed[0]  # shape: (n_bootstrap, n)
 
-            # Calculate metrics on resampled data
-            trend_strengths.append(self._calc_trend_r2(reconstructed))
-            volatilities.append(np.std(sample))
+        # Volatilities across samples
+        volatilities = np.std(samples, axis=1)
 
-            net = abs(reconstructed[-1] - reconstructed[0])
-            path = np.sum(np.abs(np.diff(reconstructed)))
-            efficiency_ratios.append(net / path if path > 0 else 0)
+        # Efficiency ratios across samples
+        net = np.abs(reconstructed[:, -1] - reconstructed[:, 0])
+        path = np.sum(np.abs(np.diff(reconstructed, axis=1)), axis=1)
+        efficiency_ratios = np.where(path > 0, net / path, 0)
 
-            # Win rate: what fraction of bars go in the trend direction
-            direction = 1 if reconstructed[-1] > reconstructed[0] else -1
-            wins = sum(1 for r in sample if np.sign(r) == direction)
-            win_rates.append(wins / n)
+        # Win rates across samples
+        direction = np.where(reconstructed[:, -1] > reconstructed[:, 0], 1, -1)[:, np.newaxis]
+        sample_signs = np.sign(samples)
+        wins = np.sum(sample_signs == direction, axis=1)
+        win_rates = wins / n
+
+        # Trend strengths (R² from linear regression vectorized via OLS)
+        x = np.arange(n, dtype=np.float64)
+        x_diff = x - np.mean(x)
+        ss_xx = np.sum(x_diff ** 2)
+
+        ss_xy = reconstructed @ x_diff
+        y_mean = np.mean(reconstructed, axis=1)
+        ss_yy = np.sum(reconstructed ** 2, axis=1) - n * (y_mean ** 2)
+        trend_strengths = np.where(ss_yy > 0, (ss_xy ** 2) / (ss_xx * ss_yy), 0)
 
         results = {}
 
@@ -281,12 +284,12 @@ class StatisticalValidator:
 
     def _calc_trend_r2(self, prices: np.ndarray) -> float:
         """R² from linear regression."""
-        x = np.arange(len(prices))
-        slope, intercept = np.polyfit(x, prices, 1)
-        predicted = slope * x + intercept
-        ss_res = np.sum((prices - predicted) ** 2)
-        ss_tot = np.sum((prices - np.mean(prices)) ** 2)
-        return 1 - ss_res / ss_tot if ss_tot > 0 else 0
+        x = np.arange(len(prices), dtype=np.float64)
+        x_diff = x - np.mean(x)
+        ss_xx = np.sum(x_diff ** 2)
+        ss_xy = np.dot(prices, x_diff)
+        ss_yy = np.sum(prices ** 2) - len(prices) * (np.mean(prices) ** 2)
+        return float((ss_xy ** 2) / (ss_xx * ss_yy)) if ss_yy > 0 else 0.0
 
     def _interpret_bootstrap(self, ci_results, win_rates):
         wr_mean = float(np.mean(win_rates))
