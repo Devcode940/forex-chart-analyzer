@@ -89,6 +89,9 @@ class StatisticalValidator:
         np.cumprod(1 + random_returns_sim, axis=1, out=random_prices[:, 1:])
         random_prices[:, 1:] *= smoothed[0]
 
+        random_profitable = 0
+        random_strong_moves = 0
+
         if pattern_direction != "PENDING":
             mid_point = n_bars // 2
             random_changes = (random_prices[:, -1] - random_prices[:, mid_point]) / (
