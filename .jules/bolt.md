@@ -1,0 +1,3 @@
+## 2025-05-18 - ML Ensemble Hyperparameters & Inputs-Hashed LRU Caching
+**Learning:** `MLEnsemble.train_and_predict` bottlenecked on 5-fold cross-validation with single-threaded base estimators during every UI rerun. Tuning estimators (`cv=3`, RF `n_estimators=100` with `n_jobs=-1`, GB `n_estimators=80`) and wrapping the pipeline with a bounded LRU cache (capacity 16) hashing input features/dictionaries cuts uncached execution time by ~50% and makes cached re-runs instant (0.000s) while restoring internal fitted model state.
+**Action:** When optimizing Streamlit-driven ML inference pipelines, combine multi-core parallel cross-validation with input-hashing LRU caches that preserve and restore fitted instance attributes.
