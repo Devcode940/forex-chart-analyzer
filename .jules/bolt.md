@@ -1,0 +1,4 @@
+## 2026-08-28 - Avoid Nested Scikit-Learn Parallelism & Use Deterministic LRU State Caching
+
+**Learning:** Combining outer cross-validation parallelism (`cross_val_score(..., n_jobs=-1)`) with inner model parallelism (`RandomForestClassifier(..., n_jobs=-1)`) causes severe process/thread oversubscription, IPC overhead, and thread contention. Furthermore, caching complex ML ensemble methods requires deterministic key serialization (`pickle.dumps`) and restoring internal fitted instance attributes (`rf_model`, `gb_model`, `meta_model`, `scaler`, `is_trained`, `training_stats`) along with deepcopying returned results to prevent caller mutation from corrupting the LRU cache.
+**Action:** Always set inner model `n_jobs=1` inside `cross_val_score(..., n_jobs=-1)`, use `pickle.dumps` for input signature caching, and restore internal model state on cache hits.
