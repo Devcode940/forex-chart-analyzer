@@ -7,13 +7,18 @@ then predicts the probability of a profitable trade for the current setup.
 Uses a stacked ensemble: Random Forest + Gradient Boosting → Meta-Learner.
 """
 
+from collections import OrderedDict
+import copy
+import pickle
+import warnings
+
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import cross_val_score
 from sklearn.pipeline import Pipeline
-import warnings
+from sklearn.preprocessing import StandardScaler
+
 warnings.filterwarnings('ignore')
 
 class MLEnsemble:
@@ -26,13 +31,15 @@ class MLEnsemble:
     Phase 4: Predict on live features
     """
 
-    def __init__(self):
+    def __init__(self, max_cache_size: int = 16):
         self.rf_model = None
         self.gb_model = None
         self.meta_model = None
         self.scaler = StandardScaler()
         self.is_trained = False
         self.training_stats = {}
+        self.max_cache_size = max_cache_size
+        self._cache = OrderedDict()
 
     def train_and_predict(self, feature_vector: np.ndarray,
                           pattern_results: list,
@@ -40,10 +47,33 @@ class MLEnsemble:
                           regime_results: dict,
                           confluence_results: dict) -> dict:
         """
-        Full ML pipeline: generate data, train, predict.
+        Full ML pipeline: generate data, train, predict. Optimized with caching.
         """
         if len(feature_vector) == 0:
             return {"error": "No features extracted"}
+
+        # Serialize inputs into cache key for deterministic LRU caching
+        cache_key = pickle.dumps((
+            feature_vector,
+            pattern_results,
+            structure_results,
+            regime_results,
+            confluence_results,
+        ))
+
+        if cache_key in self._cache:
+            self._cache.move_to_end(cache_key)
+            cached_entry = self._cache[cache_key]
+            # Restore internal fitted state for object integrity
+            state = cached_entry["state"]
+            self.rf_model = state["rf_model"]
+            self.gb_model = state["gb_model"]
+            self.meta_model = state["meta_model"]
+            self.scaler = state["scaler"]
+            self.is_trained = state["is_trained"]
+            self.training_stats = state["training_stats"]
+            return copy.deepcopy(cached_entry["result"])
+
         X_train, y_train = self._generate_synthetic_data(n_samples=2000)
         X_aug, y_aug = self._augment_with_heuristics(
             feature_vector, pattern_results, structure_results, regime_results, confluence_results
@@ -55,7 +85,7 @@ class MLEnsemble:
         cv_score = self._cross_validate(X_train, y_train)
         importance = self._feature_importance()
 
-        return {
+        result = {
             "ml_probability": prediction["probability"],
             "ml_direction": prediction["direction"],
             "ml_confidence": prediction["confidence"],
@@ -67,6 +97,23 @@ class MLEnsemble:
             "training_samples": len(y_train),
             "is_trained": self.is_trained,
         }
+
+        # Store result and fitted instance state in LRU cache
+        if len(self._cache) >= self.max_cache_size:
+            self._cache.popitem(last=False)
+        self._cache[cache_key] = {
+            "result": copy.deepcopy(result),
+            "state": {
+                "rf_model": self.rf_model,
+                "gb_model": self.gb_model,
+                "meta_model": self.meta_model,
+                "scaler": self.scaler,
+                "is_trained": self.is_trained,
+                "training_stats": self.training_stats,
+            },
+        }
+
+        return result
 
     def _generate_synthetic_data(self, n_samples: int = 2000):
         """
@@ -199,13 +246,13 @@ class MLEnsemble:
         # Scale features
         X_scaled = self.scaler.fit_transform(X)
 
-        # Base learners
+        # Base learners (optimized hyperparams for speed and balance)
         self.rf_model = RandomForestClassifier(
-            n_estimators=200, max_depth=8, min_samples_leaf=5,
+            n_estimators=100, max_depth=8, min_samples_leaf=5,
             random_state=42, n_jobs=-1
         )
         self.gb_model = GradientBoostingClassifier(
-            n_estimators=150, max_depth=5, learning_rate=0.1,
+            n_estimators=80, max_depth=5, learning_rate=0.1,
             min_samples_leaf=5, random_state=42
         )
 
@@ -256,18 +303,18 @@ class MLEnsemble:
         }
 
     def _cross_validate(self, X, y) -> dict:
-        """Run cross-validation on the base models."""
+        """Run cross-validation on the base models (optimized with cv=3 and n_jobs=-1)."""
         X_scaled = self.scaler.transform(X)
 
         try:
             rf_cv = cross_val_score(
-                RandomForestClassifier(n_estimators=200, max_depth=8, min_samples_leaf=5, random_state=42),
-                X_scaled, y, cv=5, scoring='accuracy'
+                RandomForestClassifier(n_estimators=100, max_depth=8, min_samples_leaf=5, random_state=42, n_jobs=1),
+                X_scaled, y, cv=3, scoring='accuracy', n_jobs=-1
             )
             gb_cv = cross_val_score(
-                GradientBoostingClassifier(n_estimators=150, max_depth=5, learning_rate=0.1,
+                GradientBoostingClassifier(n_estimators=80, max_depth=5, learning_rate=0.1,
                                            min_samples_leaf=5, random_state=42),
-                X_scaled, y, cv=5, scoring='accuracy'
+                X_scaled, y, cv=3, scoring='accuracy', n_jobs=-1
             )
 
             return {
