@@ -300,4 +300,3 @@ class DivergenceDetector:
                                     x_pos[p_idx2] if p_idx2 < len(x_pos) else 0
                                 )
                             })
-

@@ -249,4 +249,3 @@ class FeatureEngineer:
         # vr < 1 = mean reverting, vr > 1 = trending, vr = 1 = random walk
         score = 1 / (1 + np.exp(vr - 1))  # Sigmoid: maps to [0, 1]
         return float(np.clip(score, 0, 1))
-

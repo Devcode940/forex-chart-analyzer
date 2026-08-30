@@ -191,4 +191,3 @@ class StructureAnalyzer:
             })
 
         return phases
-

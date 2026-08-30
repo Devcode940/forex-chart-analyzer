@@ -281,4 +281,3 @@ class RiskManager:
             "🔄 Risk the same % on every trade — don't vary based on 'confidence'",
             "📋 Journal every trade: entry reason, SL, TP, outcome, lessons learned",
         ]
-
