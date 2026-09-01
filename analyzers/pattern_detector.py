@@ -121,6 +121,34 @@ class PatternDetector:
         snr = signal / (noise + 1e-9)
         return max(0.7, min(1.0, 0.5 + snr * 0.1))
 
+    @staticmethod
+    def _fast_slope(y, x=None) -> float:
+        """Fast OLS linear regression slope calculation without np.polyfit overhead.
+
+        Avoids polynomial construction and general matrix solver overhead.
+        """
+        n = len(y)
+        if n < 2:
+            return 0.0
+        y_arr = np.asarray(y, dtype=float)
+        if x is None:
+            x_mean = (n - 1) / 2.0
+            denom = n * (n * n - 1) / 12.0
+            if denom < 1e-12:
+                return 0.0
+            x_centered = np.arange(n, dtype=float) - x_mean
+            y_mean = np.mean(y_arr)
+            return float(np.dot(x_centered, y_arr - y_mean) / denom)
+        else:
+            x_arr = np.asarray(x, dtype=float)
+            x_mean = np.mean(x_arr)
+            x_centered = x_arr - x_mean
+            denom = np.dot(x_centered, x_centered)
+            if denom < 1e-12:
+                return 0.0
+            y_mean = np.mean(y_arr)
+            return float(np.dot(x_centered, y_arr - y_mean) / denom)
+
     # Pattern: Head and Shoulders
 
     def _detect_head_and_shoulders(self, swings: dict, x_pos: list,
@@ -365,7 +393,8 @@ class PatternDetector:
             high_range = max(high_vals) - min(high_vals)
             if high_range / price_range < 0.06:
                 if len(low_vals) >= 2:
-                    low_slope = np.polyfit(range(len(low_vals)), low_vals, 1)[0]
+                    # Fast OLS linear regression slope calculation
+                    low_slope = self._fast_slope(low_vals)
                     if low_slope > 0:
                         quality = self._quality_score(smoothed, highs[0]["idx"], highs[-1]["idx"])
                         confidence = self._calculate_confidence(
@@ -407,7 +436,8 @@ class PatternDetector:
             low_range = max(low_vals) - min(low_vals)
             if low_range / price_range < 0.06:
                 if len(high_vals) >= 2:
-                    high_slope = np.polyfit(range(len(high_vals)), high_vals, 1)[0]
+                    # Fast OLS linear regression slope calculation
+                    high_slope = self._fast_slope(high_vals)
                     if high_slope < 0:
                         quality = self._quality_score(smoothed, lows[0]["idx"], lows[-1]["idx"])
                         confidence = self._calculate_confidence(
@@ -445,8 +475,9 @@ class PatternDetector:
         low_vals = [l["val"] for l in lows[-3:]]
 
         if len(high_vals) >= 2 and len(low_vals) >= 2:
-            high_slope = np.polyfit(range(len(high_vals)), high_vals, 1)[0]
-            low_slope = np.polyfit(range(len(low_vals)), low_vals, 1)[0]
+            # Fast OLS linear regression slope calculation
+            high_slope = self._fast_slope(high_vals)
+            low_slope = self._fast_slope(low_vals)
 
             if high_slope < -0.01 and low_slope > 0.01:
                 quality = self._quality_score(smoothed, highs[0]["idx"], highs[-1]["idx"])
@@ -483,8 +514,9 @@ class PatternDetector:
         low_vals = [l["val"] for l in lows[-3:]]
 
         if len(high_vals) >= 2 and len(low_vals) >= 2:
-            high_slope = np.polyfit(range(len(high_vals)), high_vals, 1)[0]
-            low_slope = np.polyfit(range(len(low_vals)), low_vals, 1)[0]
+            # Fast OLS linear regression slope calculation
+            high_slope = self._fast_slope(high_vals)
+            low_slope = self._fast_slope(low_vals)
 
             if high_slope > 0.01 and low_slope > 0.01 and low_slope > high_slope:
                 quality = self._quality_score(smoothed, highs[0]["idx"], highs[-1]["idx"])
@@ -521,8 +553,9 @@ class PatternDetector:
         low_vals = [l["val"] for l in lows[-3:]]
 
         if len(high_vals) >= 2 and len(low_vals) >= 2:
-            high_slope = np.polyfit(range(len(high_vals)), high_vals, 1)[0]
-            low_slope = np.polyfit(range(len(low_vals)), low_vals, 1)[0]
+            # Fast OLS linear regression slope calculation
+            high_slope = self._fast_slope(high_vals)
+            low_slope = self._fast_slope(low_vals)
 
             if high_slope < -0.01 and low_slope < -0.01 and high_slope < low_slope:
                 quality = self._quality_score(smoothed, highs[0]["idx"], highs[-1]["idx"])
@@ -565,7 +598,8 @@ class PatternDetector:
             return
 
         rise = pole[-1] - pole[0]
-        flag_slope = np.polyfit(range(len(flag)), flag, 1)[0]
+        # Fast OLS linear regression slope calculation
+        flag_slope = self._fast_slope(flag)
 
         if rise > 0 and -0.02 < flag_slope < 0:
             pole_strength = rise / (np.ptp(smoothed) + 1e-9)
@@ -612,7 +646,8 @@ class PatternDetector:
             return
 
         drop = pole[-1] - pole[0]
-        flag_slope = np.polyfit(range(len(flag)), flag, 1)[0]
+        # Fast OLS linear regression slope calculation
+        flag_slope = self._fast_slope(flag)
 
         if drop < 0 and 0 < flag_slope < 0.02:
             pole_strength = abs(drop) / (np.ptp(smoothed) + 1e-9)
@@ -655,8 +690,9 @@ class PatternDetector:
         low_xs = [l["idx"] for l in lows]
 
         if len(high_vals) >= 2 and len(low_vals) >= 2:
-            high_slope = np.polyfit(high_xs, high_vals, 1)[0]
-            low_slope = np.polyfit(low_xs, low_vals, 1)[0]
+            # Fast OLS linear regression slope calculation
+            high_slope = self._fast_slope(high_vals, high_xs)
+            low_slope = self._fast_slope(low_vals, low_xs)
 
             slope_diff = abs(high_slope - low_slope)
             avg_slope = (high_slope + low_slope) / 2
@@ -708,7 +744,8 @@ class PatternDetector:
         if len(recent) < 3:
             return
 
-        recent_slope = np.polyfit(range(len(recent)), recent, 1)[0]
+        # Fast OLS linear regression slope calculation
+        recent_slope = self._fast_slope(recent)
         near_high = smoothed[-1] > np.percentile(smoothed, 85)
         near_low = smoothed[-1] < np.percentile(smoothed, 15)
 
@@ -829,7 +866,8 @@ class PatternDetector:
                 )
                 handle_segment = smoothed[right_rim_candidate["idx"]:handle_end_idx + 1]
                 if len(handle_segment) >= 3:
-                    handle_slope = np.polyfit(range(len(handle_segment)), handle_segment, 1)[0]
+                    # Fast OLS linear regression slope calculation
+                    handle_slope = self._fast_slope(handle_segment)
                     # Handle should drift slightly downward (or sideways)
                     if -0.03 <= handle_slope <= 0.005:
                         handle_found = True
