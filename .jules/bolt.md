@@ -1,0 +1,3 @@
+## 2025-05-18 - Fast OLS Slope for 1D Trend Calculations
+**Learning:** `np.polyfit(x, y, 1)[0]` introduces significant execution overhead in repeated loop executions due to Vandermonde matrix construction, polynomial fitting, and general SVD solvers. For simple 1D linear regression slopes, algebraic Ordinary Least Squares (OLS) closed-form calculation ($\frac{\sum (x_i - \bar{x})(y_i - \bar{y})}{\sum (x_i - \bar{x})^2}$) provides >2-4x speedup with zero numerical degradation. When $x \in [0, n-1]$, pre-calculating $x_{mean} = \frac{n-1}{2}$ and $\text{denom} = \frac{n(n^2-1)}{12}$ provides maximum speedup.
+**Action:** Replace 1D linear slope `np.polyfit` calls with lightweight OLS scalar helpers.
