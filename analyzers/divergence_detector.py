@@ -8,7 +8,7 @@ Hidden Divergence = Trend Continuation Signal
 """
 
 import numpy as np
-from scipy.signal import find_peaks
+from scipy.signal import find_peaks, lfilter
 
 class DivergenceDetector:
     """
@@ -65,42 +65,50 @@ class DivergenceDetector:
         return self.divergences
 
     def _calc_rate_of_change(self, data: np.ndarray, period: int = 5) -> np.ndarray:
-        """Calculate Rate of Change (momentum proxy)."""
-        roc = np.zeros_like(data)
-        for i in range(period, len(data)):
-            if data[i - period] != 0:
-                roc[i] = (data[i] - data[i - period]) / abs(data[i - period]) * 100
+        """Calculate Rate of Change (momentum proxy) using vectorized array operations."""
+        roc = np.zeros_like(data, dtype=float)
+        if len(data) <= period:
+            return roc
+        prev = data[:-period]
+        curr = data[period:]
+        valid = prev != 0
+        roc[period:][valid] = (curr[valid] - prev[valid]) / np.abs(prev[valid]) * 100.0
         return roc
 
     def _calc_momentum_oscillator(self, data: np.ndarray, period: int = 14) -> np.ndarray:
         """
-        Calculate a momentum oscillator similar to RSI.
+        Calculate a momentum oscillator similar to RSI using vectorized linear filter.
         Uses up/down moves to create a bounded 0-100 oscillator.
         """
         deltas = np.diff(data)
-        gains = np.where(deltas > 0, deltas, 0)
-        losses = np.where(deltas < 0, -deltas, 0)
+        gains = np.where(deltas > 0, deltas, 0.0)
+        losses = np.where(deltas < 0, -deltas, 0.0)
 
-        # Simple moving average of gains/losses
-        osc = np.zeros(len(data))
+        osc = np.zeros(len(data), dtype=float)
 
         if len(gains) < period:
             return osc
 
-        avg_gain = np.mean(gains[:period])
-        avg_loss = np.mean(losses[:period])
+        # Exponential moving average filter coefficients
+        alpha = 1.0 / period
+        b = [alpha]
+        a = [1.0, -(1.0 - alpha)]
 
-        for i in range(period, len(data)):
-            if i - 1 < len(gains):
-                avg_gain = (avg_gain * (period - 1) + gains[i - 1]) / period
-                avg_loss = (avg_loss * (period - 1) + losses[i - 1]) / period
+        init_gain = np.mean(gains[:period])
+        init_loss = np.mean(losses[:period])
 
-            if avg_loss > 0:
-                rs = avg_gain / avg_loss
-                osc[i] = 100 - (100 / (1 + rs))
-            else:
-                osc[i] = 100
+        # Initial filter states matching the recursive formula: y[n] = (1-alpha)*y[n-1] + alpha*x[n]
+        zi_gain = np.array([init_gain * (1.0 - alpha)])
+        zi_loss = np.array([init_loss * (1.0 - alpha)])
 
+        avg_gains, _ = lfilter(b, a, gains[period - 1:], zi=zi_gain)
+        avg_losses, _ = lfilter(b, a, losses[period - 1:], zi=zi_loss)
+
+        with np.errstate(divide="ignore", invalid="ignore"):
+            rs = np.where(avg_losses > 0, avg_gains / avg_losses, np.nan)
+            osc_vals = np.where(avg_losses > 0, 100.0 - (100.0 / (1.0 + rs)), 100.0)
+
+        osc[period:] = osc_vals
         return osc
 
     def _detect_regular_bearish(self, price, momentum, price_highs, mom_highs, x_pos):
@@ -300,4 +308,3 @@ class DivergenceDetector:
                                     x_pos[p_idx2] if p_idx2 < len(x_pos) else 0
                                 )
                             })
-
