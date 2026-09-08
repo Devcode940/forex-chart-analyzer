@@ -287,4 +287,3 @@ class SLTPCalculator:
                 "confidence": 0.4,
                 "source": "Aggressive (wide SL, big target)"
             })
-

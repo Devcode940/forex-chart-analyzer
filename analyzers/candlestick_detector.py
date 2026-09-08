@@ -376,4 +376,3 @@ class CandlestickDetector:
                     "Two candles with matching lows. Double support at this level.",
                     "Enter long above the high of the second candle. SL below the shared low."
                 )
-

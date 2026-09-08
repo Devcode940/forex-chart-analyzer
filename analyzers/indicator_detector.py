@@ -281,4 +281,3 @@ class IndicatorDetector:
                 })
 
         return crossovers
-

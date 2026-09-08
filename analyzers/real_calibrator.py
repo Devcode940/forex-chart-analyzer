@@ -138,4 +138,3 @@ class RealCalibrator:
                 )
 
         return " ".join(lines)
-
