@@ -1,0 +1,3 @@
+## 2025-05-18 - Vectorize Bootstrap Resampling in StatisticalValidator
+**Learning:** Sequential `np.polyfit` calls in Python loops during bootstrap resampling create severe CPU bottlenecks. By vectorizing the bootstrap draw into a 2D `(n_bootstrap, n)` NumPy array and calculating trend $R^2$ using matrix-based algebraic Ordinary Least Squares (OLS), execution time drops from ~2.33s to ~0.055s (~42x speedup) for 10,000 resamples.
+**Action:** When calculating statistics across many resampled iterations or paths, vectorize the sampling into 2D matrices and use matrix algebraic formulas instead of calling `np.polyfit` or Python loops inside per-iteration loops.

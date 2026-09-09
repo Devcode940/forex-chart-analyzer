@@ -215,34 +215,38 @@ class StatisticalValidator:
 
         returns = np.diff(smoothed) / (smoothed[:-1] + 1e-6)
 
-        # Bootstrap resampling
-        trend_strengths = []
-        volatilities = []
-        efficiency_ratios = []
-        win_rates = []
-
+        # Vectorized bootstrap resampling across 2D matrix (n_bootstrap x n)
         n = len(returns)
+        sample_indices = np.random.randint(0, n, size=(n_bootstrap, n))
+        samples = returns[sample_indices]  # Shape: (n_bootstrap, n)
 
-        for _ in range(n_bootstrap):
-            # Resample returns with replacement
-            sample_idx = np.random.randint(0, n, size=n)
-            sample = returns[sample_idx]
+        # Reconstruct price paths in bulk: shape (n_bootstrap, n)
+        reconstructed = np.cumprod(1.0 + samples, axis=1) * smoothed[0]
 
-            # Reconstruct price path
-            reconstructed = np.cumprod(1 + sample) * smoothed[0]
+        # 1. Vectorized trend R² calculation via algebraic OLS
+        x = np.arange(n, dtype=np.float64)
+        x_dev = x - (n - 1) / 2.0
+        var_x = np.sum(x_dev ** 2)
 
-            # Calculate metrics on resampled data
-            trend_strengths.append(self._calc_trend_r2(reconstructed))
-            volatilities.append(np.std(sample))
+        y_mean = np.mean(reconstructed, axis=1, keepdims=True)
+        y_dev = reconstructed - y_mean
+        var_y = np.sum(y_dev ** 2, axis=1)
+        cov_xy = np.dot(y_dev, x_dev)
 
-            net = abs(reconstructed[-1] - reconstructed[0])
-            path = np.sum(np.abs(np.diff(reconstructed)))
-            efficiency_ratios.append(net / path if path > 0 else 0)
+        trend_strengths = np.where(var_y > 0, (cov_xy ** 2) / (var_x * var_y), 0.0)
 
-            # Win rate: what fraction of bars go in the trend direction
-            direction = 1 if reconstructed[-1] > reconstructed[0] else -1
-            wins = sum(1 for r in sample if np.sign(r) == direction)
-            win_rates.append(wins / n)
+        # 2. Vectorized volatilities (std dev along resampled returns)
+        volatilities = np.std(samples, axis=1)
+
+        # 3. Vectorized efficiency ratios
+        net = np.abs(reconstructed[:, -1] - reconstructed[:, 0])
+        path = np.sum(np.abs(np.diff(reconstructed, axis=1)), axis=1)
+        efficiency_ratios = np.where(path > 0, net / path, 0.0)
+
+        # 4. Vectorized win rates
+        direction = np.where(reconstructed[:, -1] > reconstructed[:, 0], 1, -1)[:, None]
+        wins = np.sum(np.sign(samples) == direction, axis=1)
+        win_rates = wins / float(n)
 
         results = {}
 
