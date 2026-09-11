@@ -1,0 +1,3 @@
+## 2026-03-01 - Vectorizing ML Ensemble Synthetic Data and Parallelizing Cross-Validation
+**Learning:** `MLEnsemble.train_and_predict` dominated execution time due to generating synthetic dataset via per-sample Python loops and sequential `cross_val_score` execution across heavy estimators. Vectorizing sample generation with NumPy 2D array operations and leveraging `n_jobs=-1` with `cv=3` reduced `MLEnsemble` execution time from ~39.2s to ~11.2s and total pipeline validation time from ~53.4s to ~23.3s.
+**Action:** Always check `cross_val_score` `n_jobs` settings and loop-based synthetic data generators when scaling ML ensemble modules.
