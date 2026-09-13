@@ -57,44 +57,65 @@ class CandlestickDetector:
         return self.detected
 
     def _build_candles(self, highs, lows, centers, x_positions) -> list:
-        """Build approximate OHLC candle structures."""
-        candles = []
-        for i in range(len(highs)):
-            # Approximate open/close from center movement
-            if i < len(centers) - 1:
-                is_bullish = centers[i + 1] > centers[i] if i + 1 < len(centers) else True
-            else:
-                is_bullish = True
+        """Build approximate OHLC candle structures (vectorized with NumPy for high performance)."""
+        highs_arr = np.asarray(highs, dtype=float)
+        lows_arr = np.asarray(lows, dtype=float)
+        centers_arr = np.asarray(centers, dtype=float)
+        n = len(highs_arr)
+        if n == 0:
+            return []
 
-            if is_bullish:
-                open_price = lows[i] + (highs[i] - lows[i]) * 0.3
-                close_price = lows[i] + (highs[i] - lows[i]) * 0.7
-            else:
-                open_price = lows[i] + (highs[i] - lows[i]) * 0.7
-                close_price = lows[i] + (highs[i] - lows[i]) * 0.3
+        # Vectorized boolean determination for is_bullish
+        is_bullish = np.ones(n, dtype=bool)
+        m = min(n - 1, len(centers_arr) - 1)
+        if m > 0:
+            is_bullish[:m] = centers_arr[1:m + 1] > centers_arr[:m]
 
-            body = abs(close_price - open_price)
-            total_range = highs[i] - lows[i]
+        rng = highs_arr - lows_arr
+        open_factor = np.where(is_bullish, 0.3, 0.7)
+        close_factor = np.where(is_bullish, 0.7, 0.3)
 
-            upper_wick = highs[i] - max(open_price, close_price)
-            lower_wick = min(open_price, close_price) - lows[i]
+        opens = lows_arr + rng * open_factor
+        closes = lows_arr + rng * close_factor
+        bodies = np.abs(closes - opens)
+        max_oc = np.maximum(opens, closes)
+        min_oc = np.minimum(opens, closes)
+        upper_wicks = highs_arr - max_oc
+        lower_wicks = min_oc - lows_arr
+        body_ratios = np.divide(bodies, rng, out=np.zeros(n, dtype=float), where=rng > 0)
 
-            candle = {
+        # Convert to native Python lists for fast dictionary construction
+        highs_list = highs_arr.tolist()
+        lows_list = lows_arr.tolist()
+        opens_list = opens.tolist()
+        closes_list = closes.tolist()
+        bodies_list = bodies.tolist()
+        rng_list = rng.tolist()
+        upper_wicks_list = upper_wicks.tolist()
+        lower_wicks_list = lower_wicks.tolist()
+        is_bullish_list = is_bullish.tolist()
+        body_ratios_list = body_ratios.tolist()
+
+        x_raw = list(x_positions) if not isinstance(x_positions, list) else x_positions
+        x_list = x_raw if len(x_raw) == n else (x_raw + [0] * (n - len(x_raw)))[:n]
+
+        return [
+            {
                 "index": i,
-                "x": x_positions[i] if i < len(x_positions) else 0,
-                "high": float(highs[i]),
-                "low": float(lows[i]),
-                "open": float(open_price),
-                "close": float(close_price),
-                "body": float(body),
-                "range": float(total_range),
-                "upper_wick": float(upper_wick),
-                "lower_wick": float(lower_wick),
-                "is_bullish": is_bullish,
-                "body_ratio": float(body / total_range) if total_range > 0 else 0,
+                "x": x_list[i],
+                "high": highs_list[i],
+                "low": lows_list[i],
+                "open": opens_list[i],
+                "close": closes_list[i],
+                "body": bodies_list[i],
+                "range": rng_list[i],
+                "upper_wick": upper_wicks_list[i],
+                "lower_wick": lower_wicks_list[i],
+                "is_bullish": is_bullish_list[i],
+                "body_ratio": body_ratios_list[i],
             }
-            candles.append(candle)
-        return candles
+            for i in range(n)
+        ]
 
     def _add_pattern(self, name: str, category: str, signal: str,
                      index: int, x: int, confidence: float, description: str,
