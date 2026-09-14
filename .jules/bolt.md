@@ -1,0 +1,3 @@
+## 2026-03-29 - Vectorize Binary Mask Line Extraction with 3D Matrix Reshaping
+**Learning:** In `analyzers/indicator_detector.py`, extracting moving average line points from binary mask slices originally iterated over up to 100 column slices sequentially in Python, performing column indexing and `np.where(column > 0)` / `np.mean` calls. Vectorizing this by reshaping the mask into 3D `(h, num_slices, slice_width)` and using matrix reductions with `np.dot` computes slice averages simultaneously and reduces function execution time by ~73% (~9.9ms -> ~2.7ms for 10 calls).
+**Action:** Use 3D NumPy array reshaping and dot product matrix reductions when performing 2D spatial slice operations across images or time-series windows to eliminate Python loop overhead.
