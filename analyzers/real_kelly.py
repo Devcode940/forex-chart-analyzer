@@ -165,4 +165,3 @@ class RealKellyCalculator:
             return f"✅ GOOD EDGE: Full Kelly = {full_kelly:.1%}. Half-Kelly ({risk:.2%} risk) gives good growth with manageable drawdowns."
 
         return f"🟢 STRONG EDGE: Full Kelly = {full_kelly:.1%}. But DO NOT use full Kelly! Half-Kelly ({risk:.2%} risk) is the maximum recommended."
-

@@ -157,4 +157,3 @@ class RegimeClassifier:
             "TRANSITIONAL": "Set alerts at key levels. Wait for confirmed breakout with volume. Have orders ready but don't preempt the move."
         }
         return recommendations.get(self.regime, "Wait for clearer market conditions.")
-

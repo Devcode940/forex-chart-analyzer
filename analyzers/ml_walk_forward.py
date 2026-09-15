@@ -291,4 +291,3 @@ class WalkForwardValidator:
             "std_accuracy": round(float(acc_std), 3),
             "note": note,
         }
-

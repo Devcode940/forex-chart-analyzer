@@ -202,4 +202,3 @@ class SRDetector:
                         "type": "CONFLUENCE"
                     })
         return zones
-
