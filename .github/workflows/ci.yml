@@ -49,6 +49,7 @@ jobs:
 
       - name: Create branch and open PR if formatting changed
         id: pr
+        continue-on-error: true
         uses: peter-evans/create-pull-request@v5
         with:
           commit-message: "chore: apply automatic formatting (black + isort)"
