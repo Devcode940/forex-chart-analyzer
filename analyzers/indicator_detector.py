@@ -209,26 +209,36 @@ class IndicatorDetector:
         return h_lines[:5]
 
     def _extract_line_points(self, mask: np.ndarray) -> list:
-        """Extract ordered points from a binary mask (for MA line tracking)."""
-        h, w = mask.shape
-        points = []
+        """Extract ordered points from a binary mask (for MA line tracking).
 
-        # Divide into vertical slices
+        Vectorized using 3D array reshaping and matrix reductions to compute column
+        slice mean y-coordinates simultaneously instead of looping over image slices.
+        """
+        h, w = mask.shape
         num_slices = min(w, 100)
         slice_width = max(w // num_slices, 1)
 
-        for i in range(num_slices):
-            x_start = i * slice_width
-            x_end = min((i + 1) * slice_width, w)
-            column = mask[:, x_start:x_end]
+        valid_w = num_slices * slice_width
+        mask_sub = (mask[:, :valid_w] > 0).reshape(h, num_slices, slice_width)
 
-            rows = np.where(column > 0)
-            if len(rows[0]) > 0:
-                center_y = int(np.mean(rows[0]))
-                center_x = (x_start + x_end) // 2
-                points.append({"x": center_x, "y": center_y})
+        # Sum active pixels along x slice width (axis 2) -> (h, num_slices)
+        row_counts = mask_sub.sum(axis=2)
+        counts = row_counts.sum(axis=0)  # Total active pixels per slice
 
-        return points
+        valid_mask = counts > 0
+        if not np.any(valid_mask):
+            return []
+
+        # Calculate sum of y indices per slice via matrix multiplication with y grid
+        y_sums = row_counts.T @ np.arange(h)
+        valid_indices = np.where(valid_mask)[0]
+        center_ys = (y_sums[valid_indices] / counts[valid_indices]).astype(int)
+
+        x_starts = valid_indices * slice_width
+        x_ends = np.minimum((valid_indices + 1) * slice_width, w)
+        center_xs = (x_starts + x_ends) // 2
+
+        return [{"x": int(x), "y": int(y)} for x, y in zip(center_xs, center_ys)]
 
     def get_ma_crossovers(self, ma_lines: list) -> list:
         """
