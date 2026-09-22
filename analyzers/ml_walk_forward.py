@@ -16,7 +16,12 @@ import warnings
 
 import numpy as np
 from sklearn.ensemble import GradientBoostingClassifier
-from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
+from sklearn.metrics import (
+    accuracy_score,
+    f1_score,
+    precision_score,
+    recall_score,
+)
 from sklearn.preprocessing import StandardScaler
 
 warnings.filterwarnings("ignore")
@@ -77,7 +82,7 @@ class WalkForwardValidator:
             X_train_scaled = scaler.fit_transform(X_train)
             X_test_scaled = scaler.transform(X_test)
 
-            # Train model on this window (tuned with max_features='sqrt', max_depth=3, n_estimators=40 for speed)
+            # Train model on this window (tuned with max_features='sqrt')
             model = GradientBoostingClassifier(
                 n_estimators=40,
                 max_depth=3,
@@ -151,7 +156,7 @@ class WalkForwardValidator:
         }
 
     def _generate_time_series_data(self, n_samples: int = 3000):
-        """Generate time-series data with regime changes for realistic WF testing (vectorized)."""
+        """Generate time-series data with regime changes (vectorized)."""
         np.random.seed(42)
         n_features = 50
         X = np.zeros((n_samples, n_features))
@@ -189,14 +194,12 @@ class WalkForwardValidator:
             X[start:end, 3] = np.sum(ret, axis=1)
 
             # Features 4:10
-            X[start:end, 4:10] = np.column_stack(
-                [np.sum(ret[:, -k:], axis=1) for k in [5, 10, 20, 5, 10, 20]]
-            )
+            sums = [np.sum(ret[:, -k:], axis=1) for k in [5, 10, 20, 5, 10, 20]]
+            X[start:end, 4:10] = np.column_stack(sums)
 
             # Features 10:14
-            X[start:end, 10:14] = np.column_stack(
-                [np.std(ret[:, -k:], axis=1) for k in [5, 10, 20, 20]]
-            )
+            stds = [np.std(ret[:, -k:], axis=1) for k in [5, 10, 20, 20]]
+            X[start:end, 10:14] = np.column_stack(stds)
 
             # Features 14:20
             col14_15 = np.column_stack([np.full(size, sigma * 10), np.ones(size)])
@@ -242,7 +245,7 @@ class WalkForwardValidator:
         return X, y
 
     def _simulate_pnl(self, probabilities: np.ndarray, actual: np.ndarray) -> dict:
-        """Simulate P&L from predictions with position sizing by confidence (vectorized)."""
+        """Simulate P&L from predictions with position sizing (vectorized)."""
         predicted = (probabilities > 0.5).astype(int)
         confidence = np.abs(probabilities - 0.5)
         is_correct = predicted == actual
@@ -306,18 +309,19 @@ class WalkForwardValidator:
         if acc > 0.65:
             return (
                 f"✅ Walk-forward accuracy: {acc:.1%} (precision: {prec:.1%}). "
-                f"Model generalizes well out-of-sample across {len(windows)} windows. "
-                f"Predictions are likely reliable."
+                f"Model generalizes well out-of-sample across "
+                f"{len(windows)} windows. Predictions are likely reliable."
             )
         elif acc > 0.55:
             return (
-                f"🟡 Walk-forward accuracy: {acc:.1%}. Modest edge over random. "
-                f"Use with caution and always combine with other analysis."
+                f"🟡 Walk-forward accuracy: {acc:.1%}. Modest edge over random."
+                f" Use with caution and combine with other analysis."
             )
         else:
             return (
-                f"🔴 Walk-forward accuracy: {acc:.1%} — barely above or below random. "
-                f"Model does NOT generalize well. Heuristic scores may be overfitting to this chart."
+                f"🔴 Walk-forward accuracy: {acc:.1%} — barely edge. "
+                f"Model does NOT generalize well. Heuristic scores may "
+                f"be overfitting."
             )
 
     def _check_overfitting(self, windows) -> dict:
@@ -331,13 +335,18 @@ class WalkForwardValidator:
 
         if acc_std < 0.05:
             status = "STABLE"
-            note = "Performance is consistent across windows — no overfitting detected."
+            note = (
+                "Performance is consistent across windows — " "no overfitting detected."
+            )
         elif acc_std < 0.15:
             status = "MODERATE_VARIANCE"
-            note = "Some variance across windows. Model may be overfitting in certain regimes."
+            note = (
+                "Some variance across windows. "
+                "Model may be overfitting in certain regimes."
+            )
         else:
             status = "HIGH_VARIANCE"
-            note = "High variance across windows — model is likely overfitting. Do not trust individual predictions."
+            note = "High variance across windows — model is likely overfitting."
 
         return {
             "status": status,
