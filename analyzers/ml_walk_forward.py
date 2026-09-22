@@ -13,6 +13,7 @@ This prevents overfitting and gives realistic expected performance.
 """
 
 import warnings
+
 import numpy as np
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
@@ -250,9 +251,7 @@ class WalkForwardValidator:
         wins = int(np.sum(is_correct))
         losses = len(actual) - wins
         total_win = float(np.sum(pnl_list[is_correct])) if wins > 0 else 0.0
-        total_loss = (
-            float(np.sum(np.abs(pnl_list[~is_correct]))) if losses > 0 else 0.0
-        )
+        total_loss = float(np.sum(np.abs(pnl_list[~is_correct]))) if losses > 0 else 0.0
 
         # Calculate metrics
         cumulative = np.cumsum(pnl_list)
@@ -332,9 +331,7 @@ class WalkForwardValidator:
 
         if acc_std < 0.05:
             status = "STABLE"
-            note = (
-                "Performance is consistent across windows — no overfitting detected."
-            )
+            note = "Performance is consistent across windows — no overfitting detected."
         elif acc_std < 0.15:
             status = "MODERATE_VARIANCE"
             note = "Some variance across windows. Model may be overfitting in certain regimes."
