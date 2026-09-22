@@ -6,6 +6,7 @@ Converts abstract price units to pip values for major forex pairs.
 
 import numpy as np
 
+
 class RiskManager:
     """
     Professional position sizing calculator.
@@ -14,37 +15,65 @@ class RiskManager:
 
     # Standard pip values for major pairs (approximate)
     PIP_VALUES = {
-        "EURUSD": 10.0, "GBPUSD": 10.0, "AUDUSD": 10.0, "NZDUSD": 10.0,
-        "USDJPY": 6.5, "EURJPY": 6.5, "GBPJPY": 6.5,
-        "USDCHF": 10.5, "USDCAD": 7.5, "AUDJPY": 6.5,
-        "XAUUSD": 1.0, "US30": 1.0, "NAS100": 1.0,
+        "EURUSD": 10.0,
+        "GBPUSD": 10.0,
+        "AUDUSD": 10.0,
+        "NZDUSD": 10.0,
+        "USDJPY": 6.5,
+        "EURJPY": 6.5,
+        "GBPJPY": 6.5,
+        "USDCHF": 10.5,
+        "USDCAD": 7.5,
+        "AUDJPY": 6.5,
+        "XAUUSD": 1.0,
+        "US30": 1.0,
+        "NAS100": 1.0,
     }
 
     # Pip sizes
     PIP_SIZES = {
-        "EURUSD": 0.0001, "GBPUSD": 0.0001, "AUDUSD": 0.0001,
-        "USDJPY": 0.01, "EURJPY": 0.01, "GBPJPY": 0.01,
+        "EURUSD": 0.0001,
+        "GBPUSD": 0.0001,
+        "AUDUSD": 0.0001,
+        "USDJPY": 0.01,
+        "EURJPY": 0.01,
+        "GBPJPY": 0.01,
         "XAUUSD": 0.10,  # Gold
     }
 
     def __init__(self):
         self.results = {}
 
-    def calculate(self, sltp_results: dict, sr_results: dict,
-                  structure_results: dict, image_height: int,
-                  account_balance: float = 10000,
-                  risk_percent: float = 1.0,
-                  pair: str = "EURUSD") -> dict:
+    def calculate(
+        self,
+        sltp_results: dict,
+        sr_results: dict,
+        structure_results: dict,
+        image_height: int,
+        account_balance: float = 10000,
+        risk_percent: float = 1.0,
+        pair: str = "EURUSD",
+    ) -> dict:
         """
-        Calculate full risk management profile.        """
+        Calculate full risk management profile."""
         best = sltp_results.get("best_scenario", {})
         scenarios = sltp_results.get("scenarios", [])
 
         if not best and not scenarios:
             return {"error": "No SL/TP data available for risk calculation"}
 
-        valid_scenarios = [s for s in scenarios if s.get("sl") is not None and s.get("entry") is not None and abs(s.get("entry", 0) - s.get("sl", 0)) > 0.001]
-        if best and (best.get("sl") is None or best.get("entry") is None or abs(best.get("entry", 0) - best.get("sl", 0)) < 0.001):
+        valid_scenarios = [
+            s
+            for s in scenarios
+            if s.get("sl") is not None
+            and s.get("entry") is not None
+            and abs(s.get("entry", 0) - s.get("sl", 0)) > 0.001
+        ]
+        if best and (
+            best.get("sl") is None
+            or best.get("entry") is None
+            or abs(best.get("entry", 0) - best.get("sl", 0)) < 0.001
+        ):
             best = valid_scenarios[0] if valid_scenarios else None
 
         # Get pip value for this pair
@@ -55,16 +84,30 @@ class RiskManager:
         scenario_risks = []
         for scenario in scenarios:
             risk_data = self._calc_scenario_risk(
-                scenario, account_balance, risk_percent,
-                pip_value, pip_size, image_height, pair
+                scenario,
+                account_balance,
+                risk_percent,
+                pip_value,
+                pip_size,
+                image_height,
+                pair,
             )
             scenario_risks.append(risk_data)
 
         # Best scenario detailed calculation
-        best_risk = self._calc_scenario_risk(
-            best, account_balance, risk_percent,
-            pip_value, pip_size, image_height, pair
-        ) if best else None
+        best_risk = (
+            self._calc_scenario_risk(
+                best,
+                account_balance,
+                risk_percent,
+                pip_value,
+                pip_size,
+                image_height,
+                pair,
+            )
+            if best
+            else None
+        )
 
         # Risk of ruin calculation
         win_rate = self._estimate_win_rate(sltp_results, structure_results)
@@ -97,9 +140,16 @@ class RiskManager:
 
         return self.results
 
-    def _calc_scenario_risk(self, scenario: dict, balance: float,
-                            risk_pct: float, pip_val: float, pip_size: float,
-                            img_h: int, pair: str) -> dict:
+    def _calc_scenario_risk(
+        self,
+        scenario: dict,
+        balance: float,
+        risk_pct: float,
+        pip_val: float,
+        pip_size: float,
+        img_h: int,
+        pair: str,
+    ) -> dict:
         """Calculate risk metrics for a single scenario."""
         if not scenario:
             return {}
@@ -199,7 +249,11 @@ class RiskManager:
 
         # Simplified ROR formula
         q = 1 - win_rate
-        ror = (q / win_rate) ** (1 / (risk_pct / 100 * avg_win / avg_loss)) if win_rate > q else 0.9
+        ror = (
+            (q / win_rate) ** (1 / (risk_pct / 100 * avg_win / avg_loss))
+            if win_rate > q
+            else 0.9
+        )
 
         ror = max(0, min(ror, 1.0))
 
@@ -245,12 +299,19 @@ class RiskManager:
         return {
             "expected_max_dd_pct": round(min(expected_dd, 100), 1),
             "worst_case_dd_pct": round(min(worst_case_dd, 100), 1),
-            "avg_consecutive_losses": min(int(1 / (1 - win_rate + 0.01)), 10) if win_rate < 0.99 else 1,
-            "recovery_needed": round(1 / (1 - expected_dd / 100) - 1, 2) * 100 if expected_dd < 100 else 999,
+            "avg_consecutive_losses": (
+                min(int(1 / (1 - win_rate + 0.01)), 10) if win_rate < 0.99 else 1
+            ),
+            "recovery_needed": (
+                round(1 / (1 - expected_dd / 100) - 1, 2) * 100
+                if expected_dd < 100
+                else 999
+            ),
         }
 
-    def _generate_sizing_table(self, balance: float, pip_val: float,
-                                pip_size: float, img_h: int) -> list:
+    def _generate_sizing_table(
+        self, balance: float, pip_val: float, pip_size: float, img_h: int
+    ) -> list:
         """Generate a position sizing reference table."""
         table = []
         for risk_pct in [0.25, 0.5, 1.0, 1.5, 2.0, 3.0]:
@@ -259,12 +320,14 @@ class RiskManager:
                 if sl_pips * pip_val > 0:
                     lots = risk_amount / (sl_pips * pip_val)
                     lots = round(lots * 100) / 100
-                    table.append({
-                        "risk_pct": risk_pct,
-                        "risk_amount": round(risk_amount, 2),
-                        "sl_pips": sl_pips,
-                        "lots": lots,
-                    })
+                    table.append(
+                        {
+                            "risk_pct": risk_pct,
+                            "risk_amount": round(risk_amount, 2),
+                            "sl_pips": sl_pips,
+                            "lots": lots,
+                        }
+                    )
         return table
 
     def _get_risk_rules(self) -> list:
@@ -281,4 +344,3 @@ class RiskManager:
             "🔄 Risk the same % on every trade — don't vary based on 'confidence'",
             "📋 Journal every trade: entry reason, SL, TP, outcome, lessons learned",
         ]
-
