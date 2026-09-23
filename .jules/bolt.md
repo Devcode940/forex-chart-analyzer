@@ -1,0 +1,3 @@
+## 2025-05-18 - Vectorize Synthetic Data Generation and Thread Tuning in ML Ensemble
+**Learning:** Generating 2,000 synthetic feature samples sequentially using Python loops introduced ~0.95s delay per training run, and uncoordinated thread allocation (`n_jobs=-1` on both estimators and `cross_val_score`) caused thread oversubscription resulting in ~40s runtime. Vectorizing data generation with 2D NumPy array operations (~7ms) and passing `n_jobs=1` to base estimators while setting `n_jobs=-1` on `cross_val_score` reduced `MLEnsemble.train_and_predict` runtime to ~13s (a ~67% speedup).
+**Action:** Always vectorize synthetic dataset generation in NumPy and configure `n_jobs=1` on base estimators when using parallel cross-validation (`cross_val_score(..., n_jobs=-1)`).
