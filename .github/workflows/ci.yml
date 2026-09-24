@@ -45,7 +45,7 @@ jobs:
 
       - name: Run isort (format)
         run: |
-          isort .
+          isort --profile black .
 
       - name: Create branch and open PR if formatting changed
         id: pr
@@ -68,7 +68,7 @@ jobs:
         run: black --check .
 
       - name: Run isort (check)
-        run: isort --check-only .
+        run: isort --check-only --profile black .
 
       - name: Run flake8
         run: flake8 .
