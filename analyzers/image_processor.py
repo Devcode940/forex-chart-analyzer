@@ -72,10 +72,12 @@ class ImageProcessor:
             # Fallback: use all pixels
             valid_pixels = pixels
 
-        unique_pixels = np.unique(valid_pixels, axis=0)
+        # Subsample valid_pixels for fast KMeans fit (max 1000 pixels) and use n_init=1 (k-means++)
+        kmeans_pixels = valid_pixels[::max(1, len(valid_pixels) // 1000)]
+        unique_pixels = np.unique(kmeans_pixels, axis=0)
         n_clusters = min(6, max(2, len(unique_pixels)))
-        kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=10, max_iter=100)
-        kmeans.fit(valid_pixels)
+        kmeans = KMeans(n_clusters=n_clusters, random_state=42, n_init=1, max_iter=100)
+        kmeans.fit(kmeans_pixels)
         centers = kmeans.cluster_centers_
 
         # Classify KMeans clusters into color families
