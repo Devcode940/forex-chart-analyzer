@@ -1,0 +1,3 @@
+## 2025-05-18 - Parallel Cross-Validation & Synthetic Data Vectorization in ML Ensemble
+**Learning:** Python iterative loops in `MLEnsemble._generate_synthetic_data` created significant overhead (~500ms). Additionally, running 5-fold cross-validation sequentially on single-threaded `RandomForestClassifier` and `GradientBoostingClassifier` models took ~30.8s. Setting `n_jobs=-1` on `cross_val_score` while passing `n_jobs=1` to base estimators parallelizes cross-validation across CPU cores without thread oversubscription.
+**Action:** Always vectorize synthetic dataset creation using 2D NumPy operations, and set `n_jobs=-1` on `cross_val_score` with `n_jobs=1` on base estimators when cross-validating ensemble models.
