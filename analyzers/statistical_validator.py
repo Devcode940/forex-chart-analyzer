@@ -72,31 +72,25 @@ class StatisticalValidator:
         if len(first_half) > 0 and len(second_half) > 0:
             actual_second_half_change = (second_half[-1] - first_half[-1]) / (first_half[-1] + 1e-6)
 
-        for sim in range(n_simulations):
-            # Generate Geometric Brownian Motion path
-            random_returns_sim = np.random.normal(mu, sigma, n_bars - 1)
-            random_prices = np.zeros(n_bars)
-            random_prices[0] = smoothed[0]
+        if pattern_direction != "PENDING":
+            # Vectorized 2D Geometric Brownian Motion path simulation
+            random_returns_sim = np.random.normal(mu, sigma, (n_simulations, n_bars - 1))
+            random_prices = np.empty((n_simulations, n_bars))
+            random_prices[:, 0] = smoothed[0]
+            random_prices[:, 1:] = smoothed[0] * np.cumprod(1 + random_returns_sim, axis=1)
 
-            for i in range(1, n_bars):
-                random_prices[i] = random_prices[i - 1] * (1 + random_returns_sim[i - 1])
+            mid_point = n_bars // 2
+            mid_prices = random_prices[:, mid_point]
+            last_prices = random_prices[:, -1]
+            random_changes = (last_prices - mid_prices) / (mid_prices + 1e-6)
 
-            # Compare: does random path produce a move as strong as the actual chart?
-            if pattern_direction != "PENDING":
-                mid_point = n_bars // 2
-                random_change = (random_prices[-1] - random_prices[mid_point]) / (random_prices[mid_point] + 1e-6)
+            if pattern_direction == "UP":
+                random_profitable = int(np.sum(random_changes > 0))
+                random_strong_moves = int(np.sum(random_changes >= actual_second_half_change))
+            elif pattern_direction == "DOWN":
+                random_profitable = int(np.sum(random_changes < 0))
+                random_strong_moves = int(np.sum(random_changes <= actual_second_half_change))
 
-                if pattern_direction == "UP":
-                    if random_change > 0:
-                        random_profitable += 1
-                    # How often does random produce a move as strong as the observed one?
-                    if random_change >= actual_second_half_change:
-                        random_strong_moves += 1
-                elif pattern_direction == "DOWN":
-                    if random_change < 0:
-                        random_profitable += 1
-                    if random_change <= actual_second_half_change:
-                        random_strong_moves += 1
         random_win_rate = random_profitable / n_simulations if n_simulations > 0 else 0.5
         # How often does random data produce a move AS STRONG as the observed pattern?
         random_strong_rate = random_strong_moves / n_simulations if n_simulations > 0 else 0.5
@@ -215,34 +209,38 @@ class StatisticalValidator:
 
         returns = np.diff(smoothed) / (smoothed[:-1] + 1e-6)
 
-        # Bootstrap resampling
-        trend_strengths = []
-        volatilities = []
-        efficiency_ratios = []
-        win_rates = []
-
+        # Vectorized bootstrap resampling over 2D matrix (n_bootstrap x n)
         n = len(returns)
+        sample_idx = np.random.randint(0, n, size=(n_bootstrap, n))
+        samples = returns[sample_idx]
 
-        for _ in range(n_bootstrap):
-            # Resample returns with replacement
-            sample_idx = np.random.randint(0, n, size=n)
-            sample = returns[sample_idx]
+        # Reconstruct price paths
+        reconstructed = np.empty((n_bootstrap, n + 1))
+        reconstructed[:, 0] = smoothed[0]
+        reconstructed[:, 1:] = np.cumprod(1 + samples, axis=1) * smoothed[0]
 
-            # Reconstruct price path
-            reconstructed = np.cumprod(1 + sample) * smoothed[0]
+        # 1. R² from linear regression (vectorized OLS formula across axis 1)
+        mean_y = np.mean(reconstructed, axis=1, keepdims=True)
+        ss_tot = np.sum((reconstructed - mean_y) ** 2, axis=1)
+        n_p = n + 1
+        mean_x = (n_p - 1) / 2.0
+        var_x = n_p * (n_p * n_p - 1) / 12.0
+        x_centered = np.arange(n_p) - mean_x
+        cov_xy = np.dot(reconstructed - mean_y, x_centered)
+        trend_strengths = np.where(ss_tot > 0, np.minimum((cov_xy ** 2) / (var_x * ss_tot), 1.0), 0.0)
 
-            # Calculate metrics on resampled data
-            trend_strengths.append(self._calc_trend_r2(reconstructed))
-            volatilities.append(np.std(sample))
+        # 2. Volatilities
+        volatilities = np.std(samples, axis=1)
 
-            net = abs(reconstructed[-1] - reconstructed[0])
-            path = np.sum(np.abs(np.diff(reconstructed)))
-            efficiency_ratios.append(net / path if path > 0 else 0)
+        # 3. Efficiency ratios
+        net = np.abs(reconstructed[:, -1] - reconstructed[:, 0])
+        path = np.sum(np.abs(np.diff(reconstructed, axis=1)), axis=1)
+        efficiency_ratios = np.where(path > 0, net / path, 0.0)
 
-            # Win rate: what fraction of bars go in the trend direction
-            direction = 1 if reconstructed[-1] > reconstructed[0] else -1
-            wins = sum(1 for r in sample if np.sign(r) == direction)
-            win_rates.append(wins / n)
+        # 4. Win rates (fraction of bars moving in the overall trend direction)
+        direction = np.where(reconstructed[:, -1] > reconstructed[:, 0], 1, -1)[:, None]
+        wins = np.sum(np.sign(samples) == direction, axis=1)
+        win_rates = wins / float(n)
 
         results = {}
 
@@ -280,13 +278,19 @@ class StatisticalValidator:
         }
 
     def _calc_trend_r2(self, prices: np.ndarray) -> float:
-        """R² from linear regression."""
-        x = np.arange(len(prices))
-        slope, intercept = np.polyfit(x, prices, 1)
-        predicted = slope * x + intercept
-        ss_res = np.sum((prices - predicted) ** 2)
-        ss_tot = np.sum((prices - np.mean(prices)) ** 2)
-        return 1 - ss_res / ss_tot if ss_tot > 0 else 0
+        """R² from linear regression using fast algebraic OLS formula."""
+        n = len(prices)
+        if n < 2:
+            return 0.0
+        mean_y = np.mean(prices)
+        ss_tot = np.sum((prices - mean_y) ** 2)
+        if ss_tot == 0:
+            return 0.0
+        mean_x = (n - 1) / 2.0
+        var_x = n * (n * n - 1) / 12.0
+        cov_xy = np.dot(np.arange(n) - mean_x, prices - mean_y)
+        r_squared = (cov_xy * cov_xy) / (var_x * ss_tot)
+        return float(min(r_squared, 1.0))
 
     def _interpret_bootstrap(self, ci_results, win_rates):
         wr_mean = float(np.mean(win_rates))
