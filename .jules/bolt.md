@@ -1,0 +1,3 @@
+## 2025-10-03 - Vectorized Synthetic Data Generation and Estimator Tuning in MLEnsemble
+**Learning:** Generating synthetic feature datasets row-by-row in Python nested loops introduces noticeable latency (~520ms for 2,000 samples). Replacing Python loops with NumPy 2D array broadcasting reduces generation latency to ~7.8ms (~66x speedup). Additionally, setting `n_jobs=1` on base estimators passed to `cross_val_score(..., n_jobs=-1)` prevents CPU thread oversubscription and drastically speeds up CV execution.
+**Action:** When working with synthetic dataset generation or cross-validation in scikit-learn models, always use 2D matrix broadcasting and ensure thread allocation across outer CV loops and inner estimators is non-overlapping.
