@@ -71,9 +71,9 @@ class WalkForwardValidator:
             X_train_scaled = scaler.fit_transform(X_train)
             X_test_scaled = scaler.transform(X_test)
 
-            # Train model on this window
+            # Train model on this window (optimized parameters for fast walk-forward evaluation)
             model = GradientBoostingClassifier(
-                n_estimators=100, max_depth=4,
+                n_estimators=40, max_depth=3, max_features='sqrt',
                 learning_rate=0.1, random_state=42
             )
             model.fit(X_train_scaled, y_train)
@@ -136,7 +136,7 @@ class WalkForwardValidator:
         }
 
     def _generate_time_series_data(self, n_samples: int = 3000):
-        """Generate time-series data with regime changes for realistic WF testing."""
+        """Generate time-series data with regime changes using vectorized 2D NumPy operations."""
         np.random.seed(42)
         n_features = 50
         X = np.zeros((n_samples, n_features))
@@ -152,69 +152,89 @@ class WalkForwardValidator:
             i += regime_len
 
         for start, end, rtype in regimes:
-            for j in range(start, end):
-                if rtype == "bull":
-                    mu, sigma = 0.003, 0.008
-                    y[j] = 1
-                elif rtype == "bear":
-                    mu, sigma = -0.003, 0.008
-                    y[j] = 0
-                else:
-                    mu, sigma = 0, 0.005
-                    y[j] = np.random.choice([0, 1])
+            count = end - start
+            if rtype == "bull":
+                mu, sigma = 0.003, 0.008
+                y[start:end] = 1
+            elif rtype == "bear":
+                mu, sigma = -0.003, 0.008
+                y[start:end] = 0
+            else:
+                mu, sigma = 0, 0.005
+                y[start:end] = np.random.choice([0, 1], size=count)
 
-                ret = np.random.normal(mu, sigma, 20)
-                X[j, 0] = ret[-1]
-                X[j, 1] = np.sum(ret[-5:])
-                X[j, 2] = np.sum(ret[-10:])
-                X[j, 3] = np.sum(ret)
-                X[j, 4:10] = [np.sum(ret[-k:]) if len(ret) >= k else np.sum(ret) for k in [5, 10, 20, 5, 10, 20]]
-                X[j, 10:14] = [np.std(ret[-k:]) if len(ret) >= k else np.std(ret) for k in [5, 10, 20, 50]]
-                X[j, 14:20] = [sigma * 10, 1.0] + [np.random.uniform(0.1, 0.5) for _ in range(4)]
-                X[j, 20:30] = [abs(mu) / (sigma + 1e-8) * 0.3, mu / (sigma + 1e-8)] + [np.random.normal(0, 0.1) for _ in range(8)]
-                X[j, 30:40] = [np.random.randint(1, 6), np.random.randint(1, 6)] + [np.random.uniform(1, 10)] + [np.random.randint(1, 10)] + [mu * 50] * 2 + [np.random.uniform(0.5, 5)] + [mu * 10] + [np.random.randint(0, 3)] * 2
-                X[j, 40:50] = [np.random.normal(0, 0.5), np.random.normal(0, 1)] + [mu / (sigma + 1e-8) * 15.87] * 2 + [np.random.uniform(-0.15, -0.01), -sigma * 1.65, -sigma * 2.0] + [np.random.uniform(0.3, 0.7), np.random.uniform(0.2, 0.8), np.random.uniform(-0.2, 0.2)]
+            rets = np.random.normal(mu, sigma, (count, 20))
+            X[start:end, 0] = rets[:, -1]
+            X[start:end, 1] = rets[:, -5:].sum(axis=1)
+            X[start:end, 2] = rets[:, -10:].sum(axis=1)
+            X[start:end, 3] = rets.sum(axis=1)
+            X[start:end, 4] = rets[:, -5:].sum(axis=1)
+            X[start:end, 5] = rets[:, -10:].sum(axis=1)
+            X[start:end, 6] = rets.sum(axis=1)
+            X[start:end, 7] = rets[:, -5:].sum(axis=1)
+            X[start:end, 8] = rets[:, -10:].sum(axis=1)
+            X[start:end, 9] = rets.sum(axis=1)
+
+            X[start:end, 10] = rets[:, -5:].std(axis=1)
+            X[start:end, 11] = rets[:, -10:].std(axis=1)
+            X[start:end, 12] = rets.std(axis=1)
+            X[start:end, 13] = sigma * 1.5
+            X[start:end, 14] = sigma * 10
+            X[start:end, 15] = 1.0
+            X[start:end, 16:20] = np.random.uniform(0.1, 0.5, size=(count, 4))
+
+            X[start:end, 20] = abs(mu) / (sigma + 1e-8) * 0.3
+            X[start:end, 21] = mu / (sigma + 1e-8)
+            X[start:end, 22:30] = np.random.normal(0, 0.1, size=(count, 8))
+
+            X[start:end, 30] = np.random.randint(1, 6, size=count)
+            X[start:end, 31] = np.random.randint(1, 6, size=count)
+            X[start:end, 32] = np.random.uniform(1, 10, size=count)
+            X[start:end, 33] = np.random.randint(1, 10, size=count)
+            X[start:end, 34] = mu * 50
+            X[start:end, 35] = mu * 50
+            X[start:end, 36] = np.random.uniform(0.5, 5, size=count)
+            X[start:end, 37] = mu * 10
+            X[start:end, 38] = np.random.randint(0, 3, size=count)
+            X[start:end, 39] = np.random.randint(0, 3, size=count)
+
+            X[start:end, 40] = np.random.normal(0, 0.5, size=count)
+            X[start:end, 41] = np.random.normal(0, 1, size=count)
+            X[start:end, 42] = mu / (sigma + 1e-8) * 15.87
+            X[start:end, 43] = mu / (sigma + 1e-8) * 15.87
+            X[start:end, 44] = np.random.uniform(-0.15, -0.01, size=count)
+            X[start:end, 45] = -sigma * 1.65
+            X[start:end, 46] = -sigma * 2.0
+            X[start:end, 47] = np.random.uniform(0.3, 0.7, size=count)
+            X[start:end, 48] = np.random.uniform(0.2, 0.8, size=count)
+            X[start:end, 49] = np.random.uniform(-0.2, 0.2, size=count)
 
         return X, y
 
     def _simulate_pnl(self, probabilities: np.ndarray, actual: np.ndarray) -> dict:
-        """Simulate P&L from predictions with position sizing by confidence."""
-        pnl_list = []
-        wins = 0
-        losses = 0
-        total_win = 0
-        total_loss = 0
+        """Simulate P&L from predictions using vectorized NumPy operations."""
+        probs = np.asarray(probabilities)
+        acts = np.asarray(actual)
 
-        for i, (prob, actual_val) in enumerate(zip(probabilities, actual)):
-            # Position: long if prob > 0.5, short if prob < 0.5
-            if prob > 0.5:
-                predicted = 1
-                confidence = prob - 0.5
-            else:
-                predicted = 0
-                confidence = 0.5 - prob
+        predicted = (probs > 0.5).astype(int)
+        confidence = np.abs(probs - 0.5)
 
-            # Simplified P&L: +1 for correct, -1 for wrong, scaled by confidence
-            if predicted == actual_val:
-                pnl = confidence * 2
-                wins += 1
-                total_win += pnl
-            else:
-                pnl = -confidence * 2
-                losses += 1
-                total_loss += abs(pnl)
+        matches = (predicted == acts)
+        pnl_list = np.where(matches, confidence * 2, -confidence * 2)
 
-            pnl_list.append(pnl)
+        wins = int(np.sum(matches))
+        losses = len(acts) - wins
+        total_win = float(np.sum(pnl_list[matches])) if wins > 0 else 0.0
+        total_loss = float(np.sum(np.abs(pnl_list[~matches]))) if losses > 0 else 0.0
 
-        # Calculate metrics
         cumulative = np.cumsum(pnl_list)
         running_max = np.maximum.accumulate(cumulative)
         drawdowns = cumulative - running_max
 
-        win_rate = wins / (wins + losses) if (wins + losses) > 0 else 0
+        win_rate = wins / len(acts) if len(acts) > 0 else 0.0
         profit_factor = total_win / (total_loss + 1e-8)
-        max_dd = float(np.min(drawdowns)) if len(drawdowns) > 0 else 0
-        sharpe = float(np.mean(pnl_list) / (np.std(pnl_list) + 1e-8) * np.sqrt(252)) if len(pnl_list) > 1 else 0
+        max_dd = float(np.min(drawdowns)) if len(drawdowns) > 0 else 0.0
+        sharpe = float(np.mean(pnl_list) / (np.std(pnl_list) + 1e-8) * np.sqrt(252)) if len(pnl_list) > 1 else 0.0
 
         return {
             "total_pnl": float(np.sum(pnl_list)),
@@ -233,7 +253,7 @@ class WalkForwardValidator:
         X_scaled = scaler.fit_transform(X)
 
         model = GradientBoostingClassifier(
-            n_estimators=100, max_depth=4,
+            n_estimators=40, max_depth=3, max_features='sqrt',
             learning_rate=0.1, random_state=42
         )
         model.fit(X_scaled, y)
