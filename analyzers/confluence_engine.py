@@ -390,4 +390,3 @@ class ConfluenceEngine:
             categories[source]["signals"].append(signal["name"])
 
         return categories
-

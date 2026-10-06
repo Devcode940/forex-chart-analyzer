@@ -605,4 +605,3 @@ class TradeDatabase:
             self.close()
         except Exception:
             pass
-
