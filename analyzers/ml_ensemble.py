@@ -8,6 +8,7 @@ Uses a stacked ensemble: Random Forest + Gradient Boosting → Meta-Learner.
 """
 
 import warnings
+
 import numpy as np
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
@@ -50,7 +51,11 @@ class MLEnsemble:
             return {"error": "No features extracted"}
         X_train, y_train = self._generate_synthetic_data(n_samples=2000)
         X_aug, y_aug = self._augment_with_heuristics(
-            feature_vector, pattern_results, structure_results, regime_results, confluence_results
+            feature_vector,
+            pattern_results,
+            structure_results,
+            regime_results,
+            confluence_results,
         )
         X_train = np.vstack([X_train, X_aug])
         y_train = np.concatenate([y_train, y_aug])
@@ -83,7 +88,9 @@ class MLEnsemble:
         X = np.zeros((n_samples, n_features))
         y = np.zeros(n_samples, dtype=int)
 
-        trend_types = np.random.choice([0, 1, 2, 3], size=n_samples, p=[0.3, 0.3, 0.25, 0.15])
+        trend_types = np.random.choice(
+            [0, 1, 2, 3], size=n_samples, p=[0.3, 0.3, 0.25, 0.15]
+        )
 
         mus = np.zeros(n_samples)
         sigmas = np.zeros(n_samples)
@@ -138,7 +145,11 @@ class MLEnsemble:
         X[:, 19] = np.random.uniform(0.001, 0.01, n_samples)
 
         # Trend features (20-29)
-        r2 = np.clip(np.abs(mus) / (sigmas + 1e-8) * 0.3 + np.random.normal(0, 0.1, n_samples), 0, 1)
+        r2 = np.clip(
+            np.abs(mus) / (sigmas + 1e-8) * 0.3 + np.random.normal(0, 0.1, n_samples),
+            0,
+            1,
+        )
         X[:, 20] = r2
         X[:, 21] = mus / (sigmas + 1e-8)
         X[:, 22] = np.random.uniform(-0.1, 0.1, n_samples)
@@ -178,7 +189,9 @@ class MLEnsemble:
 
         return X, y
 
-    def _augment_with_heuristics(self, feature_vector, patterns, structure, regime, confluence):
+    def _augment_with_heuristics(
+        self, feature_vector, patterns, structure, regime, confluence
+    ):
         """Create augmented samples from heuristic signal strengths (vectorized)."""
         n_aug = 200
         X_aug = np.tile(feature_vector, (n_aug, 1))
@@ -204,10 +217,19 @@ class MLEnsemble:
 
         # Tuned estimators for faster convergence and tree building
         self.rf_model = RandomForestClassifier(
-            n_estimators=100, max_depth=8, min_samples_leaf=5, random_state=42, n_jobs=-1
+            n_estimators=100,
+            max_depth=8,
+            min_samples_leaf=5,
+            random_state=42,
+            n_jobs=-1,
         )
         self.gb_model = GradientBoostingClassifier(
-            n_estimators=80, max_depth=3, learning_rate=0.1, min_samples_leaf=5, random_state=42, max_features="sqrt"
+            n_estimators=80,
+            max_depth=3,
+            learning_rate=0.1,
+            min_samples_leaf=5,
+            random_state=42,
+            max_features="sqrt",
         )
 
         self.rf_model.fit(X_scaled, y)
@@ -258,7 +280,13 @@ class MLEnsemble:
         try:
             # Set n_jobs=-1 on cross_val_score and n_jobs=1 on internal estimators to prevent thread oversubscription
             rf_cv = cross_val_score(
-                RandomForestClassifier(n_estimators=100, max_depth=8, min_samples_leaf=5, random_state=42, n_jobs=1),
+                RandomForestClassifier(
+                    n_estimators=100,
+                    max_depth=8,
+                    min_samples_leaf=5,
+                    random_state=42,
+                    n_jobs=1,
+                ),
                 X_scaled,
                 y,
                 cv=5,
@@ -286,7 +314,9 @@ class MLEnsemble:
                 "rf_cv_std": round(float(np.std(rf_cv)), 4),
                 "gb_cv_mean": round(float(np.mean(gb_cv)), 4),
                 "gb_cv_std": round(float(np.std(gb_cv)), 4),
-                "ensemble_estimate": round(float(np.mean([np.mean(rf_cv), np.mean(gb_cv)])), 4),
+                "ensemble_estimate": round(
+                    float(np.mean([np.mean(rf_cv), np.mean(gb_cv)])), 4
+                ),
             }
         except Exception as e:
             return {
