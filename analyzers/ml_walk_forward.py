@@ -12,15 +12,12 @@ Walk-forward is THE gold standard for trading strategy validation:
 This prevents overfitting and gives realistic expected performance.
 """
 
-import warnings
-
 import numpy as np
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
-from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 from sklearn.preprocessing import StandardScaler
-
-warnings.filterwarnings("ignore")
-
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+import warnings
+warnings.filterwarnings('ignore')
 
 class WalkForwardValidator:
     """
@@ -31,14 +28,11 @@ class WalkForwardValidator:
     def __init__(self):
         self.results = {}
 
-    def validate(
-        self,
-        feature_vector: np.ndarray,
-        pattern_results: list,
-        structure_results: dict,
-        confluence_results: dict,
-        n_windows: int = 5,
-    ) -> dict:
+    def validate(self, feature_vector: np.ndarray,
+                 pattern_results: list,
+                 structure_results: dict,
+                 confluence_results: dict,
+                 n_windows: int = 5) -> dict:
         """
         Run walk-forward validation using synthetic historical data.
         """
@@ -79,11 +73,8 @@ class WalkForwardValidator:
 
             # Train model on this window with max_features='sqrt' for ~10x speed boost during fit
             model = GradientBoostingClassifier(
-                n_estimators=40,
-                max_depth=3,
-                max_features="sqrt",
-                learning_rate=0.1,
-                random_state=42,
+                n_estimators=40, max_depth=3, max_features='sqrt',
+                learning_rate=0.1, random_state=42
             )
             model.fit(X_train_scaled, y_train)
 
@@ -103,29 +94,25 @@ class WalkForwardValidator:
             # Simulated P&L
             pnl = self._simulate_pnl(probabilities, y_test)
 
-            window_results.append(
-                {
-                    "window": w + 1,
-                    "train_size": len(y_train),
-                    "test_size": len(y_test),
-                    "accuracy": round(acc, 3),
-                    "precision": round(prec, 3),
-                    "recall": round(rec, 3),
-                    "f1_score": round(f1, 3),
-                    "simulated_pnl": round(pnl["total_pnl"], 2),
-                    "win_rate": round(pnl["win_rate"], 3),
-                    "profit_factor": round(pnl["profit_factor"], 2),
-                    "max_drawdown": round(pnl["max_drawdown"], 3),
-                    "sharpe_ratio": round(pnl["sharpe_ratio"], 2),
-                }
-            )
+            window_results.append({
+                "window": w + 1,
+                "train_size": len(y_train),
+                "test_size": len(y_test),
+                "accuracy": round(acc, 3),
+                "precision": round(prec, 3),
+                "recall": round(rec, 3),
+                "f1_score": round(f1, 3),
+                "simulated_pnl": round(pnl["total_pnl"], 2),
+                "win_rate": round(pnl["win_rate"], 3),
+                "profit_factor": round(pnl["profit_factor"], 2),
+                "max_drawdown": round(pnl["max_drawdown"], 3),
+                "sharpe_ratio": round(pnl["sharpe_ratio"], 2),
+            })
 
         # Aggregate results
         if all_predictions and all_actuals:
             overall_acc = accuracy_score(all_actuals, all_predictions)
-            overall_prec = precision_score(
-                all_actuals, all_predictions, zero_division=0
-            )
+            overall_prec = precision_score(all_actuals, all_predictions, zero_division=0)
             overall_f1 = f1_score(all_actuals, all_predictions, zero_division=0)
         else:
             overall_acc = 0
@@ -144,9 +131,7 @@ class WalkForwardValidator:
             },
             "window_results": window_results,
             "current_prediction": current_prediction,
-            "interpretation": self._interpret_wf(
-                overall_acc, overall_prec, window_results
-            ),
+            "interpretation": self._interpret_wf(overall_acc, overall_prec, window_results),
             "overfitting_check": self._check_overfitting(window_results),
         }
 
@@ -238,7 +223,7 @@ class WalkForwardValidator:
         predicted = is_long.astype(int)
         confidence = np.where(is_long, probabilities - 0.5, 0.5 - probabilities)
 
-        is_correct = predicted == actual
+        is_correct = (predicted == actual)
         pnl_list = np.where(is_correct, confidence * 2, -confidence * 2)
 
         wins = int(np.sum(is_correct))
@@ -255,11 +240,7 @@ class WalkForwardValidator:
         profit_factor = total_win / (total_loss + 1e-8)
         max_dd = float(np.min(drawdowns)) if len(drawdowns) > 0 else 0
         std_pnl = np.std(pnl_list)
-        sharpe = (
-            float(np.mean(pnl_list) / (std_pnl + 1e-8) * np.sqrt(252))
-            if len(pnl_list) > 1
-            else 0
-        )
+        sharpe = float(np.mean(pnl_list) / (std_pnl + 1e-8) * np.sqrt(252)) if len(pnl_list) > 1 else 0
 
         return {
             "total_pnl": float(np.sum(pnl_list)),
@@ -278,11 +259,8 @@ class WalkForwardValidator:
         X_scaled = scaler.fit_transform(X)
 
         model = GradientBoostingClassifier(
-            n_estimators=40,
-            max_depth=3,
-            max_features="sqrt",
-            learning_rate=0.1,
-            random_state=42,
+            n_estimators=40, max_depth=3, max_features='sqrt',
+            learning_rate=0.1, random_state=42
         )
         model.fit(X_scaled, y)
 
