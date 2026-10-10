@@ -190,4 +190,3 @@ class RealBacktester:
             "kelly_recommendation": kelly_rec,
             "calibration_note": cal_note,
         }
-

@@ -269,4 +269,3 @@ class SessionAnalyzer:
             "USDCAD": {"best": "NEW_YORK", "second": "LONDON_NY_OVERLAP"},
         }
         return pair_sessions.get(pair, {"best": "LONDON_NY_OVERLAP", "second": "LONDON"})
-

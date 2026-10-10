@@ -329,4 +329,3 @@ class LiquidityDetector:
         else:
             return ("Balanced liquidity on both sides. Wait for a sweep on one side "
                     "then trade the reversal.")
-

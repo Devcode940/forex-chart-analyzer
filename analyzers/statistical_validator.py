@@ -671,4 +671,3 @@ class StatisticalValidator:
                 f"{'The signal IS genuine.' if pass_count >= 3 else 'The signal MAY be overconfident.'}"
             ),
         }
-
