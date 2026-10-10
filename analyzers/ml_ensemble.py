@@ -8,6 +8,7 @@ Uses a stacked ensemble: Random Forest + Gradient Boosting → Meta-Learner.
 """
 
 import warnings
+
 import numpy as np
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
