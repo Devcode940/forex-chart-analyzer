@@ -792,8 +792,7 @@ if uploaded_file is not None:
 
             # Show momentum oscillator
             if structure.get("price_series"):
-                from analyzers.divergence_detector import \
-                    DivergenceDetector as DD
+                from analyzers.divergence_detector import DivergenceDetector as DD
 
                 smoothed = np.array(structure["price_series"].get("smoothed", []))
                 if len(smoothed) > 14:
