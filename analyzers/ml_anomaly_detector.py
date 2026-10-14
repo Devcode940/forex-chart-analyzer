@@ -8,12 +8,15 @@ Isolation Forest: Unsupervised anomaly detection via random partitioning
 Statistical Autoencoder: Reconstruction error as anomaly score
 """
 
+import warnings
+
 import numpy as np
+from sklearn.decomposition import PCA
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import PCA
-import warnings
-warnings.filterwarnings('ignore')
+
+warnings.filterwarnings("ignore")
+
 
 class MLAnomalyDetector:
     """
@@ -29,8 +32,7 @@ class MLAnomalyDetector:
         self.is_trained = False
         self.baseline_stats = {}
 
-    def detect(self, feature_vector: np.ndarray,
-               price_series: dict) -> dict:
+    def detect(self, feature_vector: np.ndarray, price_series: dict) -> dict:
         """
         Detect if current market state is anomalous.
         Returns anomaly score, interpretation, and risk adjustment.
@@ -44,8 +46,7 @@ class MLAnomalyDetector:
         # Train isolation forest on baseline (tuned n_estimators=100 for speed without loss of precision)
         X_scaled = self.scaler.fit_transform(X_baseline)
         self.isolation_forest = IsolationForest(
-            n_estimators=100, contamination=0.1,
-            random_state=42, n_jobs=-1
+            n_estimators=100, contamination=0.1, random_state=42, n_jobs=-1
         )
         self.isolation_forest.fit(X_scaled)
 
@@ -68,7 +69,9 @@ class MLAnomalyDetector:
         reconstruction_error = float(np.mean((current_scaled - reconstructed) ** 2))
 
         # Method 3: Statistical Z-Score Anomaly
-        z_scores = np.abs((current_scaled - self.scaler.mean_) / (self.scaler.scale_ + 1e-8))
+        z_scores = np.abs(
+            (current_scaled - self.scaler.mean_) / (self.scaler.scale_ + 1e-8)
+        )
         max_zscore = float(np.max(z_scores))
         mean_zscore = float(np.mean(z_scores))
         n_extreme = int(np.sum(z_scores > 3))  # Features > 3 std devs
@@ -78,12 +81,18 @@ class MLAnomalyDetector:
 
         # Composite anomaly score
         # Normalize each method to [0, 1] where 1 = most anomalous
-        iso_anomaly = float(np.clip(1 - (iso_score + 0.5), 0, 1))  # Higher = more anomalous
+        iso_anomaly = float(
+            np.clip(1 - (iso_score + 0.5), 0, 1)
+        )  # Higher = more anomalous
         pca_anomaly = float(np.clip(reconstruction_error * 100, 0, 1))
         zscore_anomaly = float(np.clip(mean_zscore / 5, 0, 1))
 
-        composite = (iso_anomaly * 0.35 + pca_anomaly * 0.25 +
-                     zscore_anomaly * 0.25 + price_anomaly * 0.15)
+        composite = (
+            iso_anomaly * 0.35
+            + pca_anomaly * 0.25
+            + zscore_anomaly * 0.25
+            + price_anomaly * 0.15
+        )
 
         # Determine anomaly level
         if composite < 0.25:
@@ -116,7 +125,9 @@ class MLAnomalyDetector:
                 "pca_reconstruction": {
                     "score": round(pca_anomaly, 3),
                     "reconstruction_error": round(reconstruction_error, 6),
-                    "explained_variance": round(float(np.sum(self.pca.explained_variance_ratio_)), 3),
+                    "explained_variance": round(
+                        float(np.sum(self.pca.explained_variance_ratio_)), 3
+                    ),
                 },
                 "zscore_analysis": {
                     "score": round(zscore_anomaly, 3),
@@ -128,7 +139,9 @@ class MLAnomalyDetector:
                     "score": round(price_anomaly, 3),
                 },
             },
-            "interpretation": self._interpret_anomaly(level, composite, iso_label, n_extreme),
+            "interpretation": self._interpret_anomaly(
+                level, composite, iso_label, n_extreme
+            ),
             "recommendation": self._anomaly_recommendation(level, risk_mult),
         }
 
@@ -138,13 +151,15 @@ class MLAnomalyDetector:
         n_features = 50
 
         # Sample market regimes in bulk
-        regimes = np.random.choice(["trend", "range", "volatile"], size=n_samples, p=[0.5, 0.35, 0.15])
+        regimes = np.random.choice(
+            ["trend", "range", "volatile"], size=n_samples, p=[0.5, 0.35, 0.15]
+        )
         mus = np.zeros(n_samples)
         sigmas = np.zeros(n_samples)
 
-        trend_mask = (regimes == "trend")
-        range_mask = (regimes == "range")
-        vol_mask = (regimes == "volatile")
+        trend_mask = regimes == "trend"
+        range_mask = regimes == "range"
+        vol_mask = regimes == "volatile"
 
         mus[trend_mask] = np.random.choice([-0.002, 0.002], size=np.sum(trend_mask))
         sigmas[trend_mask] = 0.008
@@ -243,4 +258,3 @@ class MLAnomalyDetector:
             "EXTREME": f"Risk multiplier: {risk_mult}×. Consider staying flat. If you must trade, use minimum size and very wide stops. Pattern reliability is LOW.",
         }
         return recs.get(level, "Proceed with caution.")
-
