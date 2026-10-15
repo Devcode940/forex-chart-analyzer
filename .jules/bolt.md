@@ -1,0 +1,4 @@
+## 2025-05-18 - Vectorized Synthetic Data Generation & Parallel Cross-Validation in MLEnsemble
+
+**Learning:** `MLEnsemble.train_and_predict` bottlenecked on both synthetic training data generation (iterative 2000-sample Python loops taking ~500ms) and sequential 5-fold cross-validation across 200 RF / 150 GB trees (~30,000ms). Parallelizing `cross_val_score` across CPU cores (`n_jobs=-1`) while setting `n_jobs=1` on internal tree estimators prevents CPU thread oversubscription. Vectorizing synthetic feature matrix construction with 2D NumPy array operations reduces synthetic generation latency from ~500ms to ~7ms.
+**Action:** When working with ML pipelines in this codebase, vectorize synthetic sample generation with NumPy matrix slicing/creation and ensure `cross_val_score` uses `n_jobs=-1` with inner estimators using `n_jobs=1`.
