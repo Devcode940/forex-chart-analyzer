@@ -8,6 +8,7 @@ Uses a stacked ensemble: Random Forest + Gradient Boosting → Meta-Learner.
 """
 
 import warnings
+
 import numpy as np
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
@@ -51,7 +52,11 @@ class MLEnsemble:
             return {"error": "No features extracted"}
         X_train, y_train = self._generate_synthetic_data(n_samples=2000)
         X_aug, y_aug = self._augment_with_heuristics(
-            feature_vector, pattern_results, structure_results, regime_results, confluence_results
+            feature_vector,
+            pattern_results,
+            structure_results,
+            regime_results,
+            confluence_results,
         )
         X_train = np.vstack([X_train, X_aug])
         y_train = np.concatenate([y_train, y_aug])
@@ -98,7 +103,9 @@ class MLEnsemble:
         y[trend_type == 0] = 1
         y[trend_type == 1] = 0
         y[trend_type == 2] = np.random.choice([0, 1], size=np.sum(trend_type == 2))
-        y[trend_type == 3] = np.random.choice([0, 1], size=np.sum(trend_type == 3), p=[0.55, 0.45])
+        y[trend_type == 3] = np.random.choice(
+            [0, 1], size=np.sum(trend_type == 3), p=[0.55, 0.45]
+        )
 
         # Generate base returns distribution in batch (n_samples x 20)
         ret = np.random.normal(mu[:, None], sigma[:, None], (n_samples, 20))
@@ -136,7 +143,11 @@ class MLEnsemble:
         X[:, 19] = np.random.uniform(0.001, 0.01, n_samples)
 
         # Trend features (20-29)
-        r2 = np.clip(np.abs(mu) / (sigma + 1e-8) * 0.3 + np.random.normal(0, 0.1, n_samples), 0, 1)
+        r2 = np.clip(
+            np.abs(mu) / (sigma + 1e-8) * 0.3 + np.random.normal(0, 0.1, n_samples),
+            0,
+            1,
+        )
         X[:, 20] = r2
         X[:, 21] = mu / (sigma + 1e-8)
         X[:, 22] = np.random.uniform(-0.1, 0.1, n_samples)
@@ -144,7 +155,9 @@ class MLEnsemble:
         X[:, 24] = mu * 80 + np.random.normal(0, 0.01, n_samples)
         X[:, 25] = mu * 50 + np.random.normal(0, 0.01, n_samples)
 
-        trend_center = np.where(trend_type == 0, 0.01, np.where(trend_type == 1, -0.01, 0.0))
+        trend_center = np.where(
+            trend_type == 0, 0.01, np.where(trend_type == 1, -0.01, 0.0)
+        )
         X[:, 26] = np.random.normal(trend_center, 0.02)
         X[:, 27] = np.random.normal(trend_center, 0.02)
         X[:, 28] = np.random.normal(trend_center, 0.02)
@@ -203,7 +216,11 @@ class MLEnsemble:
 
         # Base learners (tuned n_estimators, max_depth, and max_features='sqrt' for faster fitting)
         self.rf_model = RandomForestClassifier(
-            n_estimators=100, max_depth=6, min_samples_leaf=5, random_state=42, n_jobs=-1
+            n_estimators=100,
+            max_depth=6,
+            min_samples_leaf=5,
+            random_state=42,
+            n_jobs=-1,
         )
         self.gb_model = GradientBoostingClassifier(
             n_estimators=80,
@@ -270,7 +287,11 @@ class MLEnsemble:
         try:
             rf_cv = cross_val_score(
                 RandomForestClassifier(
-                    n_estimators=100, max_depth=6, min_samples_leaf=5, random_state=42, n_jobs=1
+                    n_estimators=100,
+                    max_depth=6,
+                    min_samples_leaf=5,
+                    random_state=42,
+                    n_jobs=1,
                 ),
                 X_scaled,
                 y,
@@ -299,7 +320,9 @@ class MLEnsemble:
                 "rf_cv_std": round(float(np.std(rf_cv)), 4),
                 "gb_cv_mean": round(float(np.mean(gb_cv)), 4),
                 "gb_cv_std": round(float(np.std(gb_cv)), 4),
-                "ensemble_estimate": round(float(np.mean([np.mean(rf_cv), np.mean(gb_cv)])), 4),
+                "ensemble_estimate": round(
+                    float(np.mean([np.mean(rf_cv), np.mean(gb_cv)])), 4
+                ),
             }
         except Exception as e:
             return {
