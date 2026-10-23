@@ -7,14 +7,17 @@ then predicts the probability of a profitable trade for the current setup.
 Uses a stacked ensemble: Random Forest + Gradient Boosting → Meta-Learner.
 """
 
+import warnings
+
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import cross_val_score
 from sklearn.pipeline import Pipeline
-import warnings
-warnings.filterwarnings('ignore')
+from sklearn.preprocessing import StandardScaler
+
+warnings.filterwarnings("ignore")
+
 
 class MLEnsemble:
     """
@@ -34,11 +37,14 @@ class MLEnsemble:
         self.is_trained = False
         self.training_stats = {}
 
-    def train_and_predict(self, feature_vector: np.ndarray,
-                          pattern_results: list,
-                          structure_results: dict,
-                          regime_results: dict,
-                          confluence_results: dict) -> dict:
+    def train_and_predict(
+        self,
+        feature_vector: np.ndarray,
+        pattern_results: list,
+        structure_results: dict,
+        regime_results: dict,
+        confluence_results: dict,
+    ) -> dict:
         """
         Full ML pipeline: generate data, train, predict.
         """
@@ -46,7 +52,11 @@ class MLEnsemble:
             return {"error": "No features extracted"}
         X_train, y_train = self._generate_synthetic_data(n_samples=2000)
         X_aug, y_aug = self._augment_with_heuristics(
-            feature_vector, pattern_results, structure_results, regime_results, confluence_results
+            feature_vector,
+            pattern_results,
+            structure_results,
+            regime_results,
+            confluence_results,
         )
         X_train = np.vstack([X_train, X_aug])
         y_train = np.concatenate([y_train, y_aug])
@@ -82,8 +92,14 @@ class MLEnsemble:
         # Sample trend types: 0=bullish (0.3), 1=bearish (0.3), 2=ranging (0.25), 3=volatile (0.15)
         trend_types = np.random.choice(4, size=n_samples, p=[0.3, 0.3, 0.25, 0.15])
 
-        mus = np.select([trend_types == 0, trend_types == 1], [0.002, -0.002], default=0.0)
-        sigmas = np.select([trend_types == 0, trend_types == 1, trend_types == 2], [0.008, 0.008, 0.005], default=0.02)
+        mus = np.select(
+            [trend_types == 0, trend_types == 1], [0.002, -0.002], default=0.0
+        )
+        sigmas = np.select(
+            [trend_types == 0, trend_types == 1, trend_types == 2],
+            [0.008, 0.008, 0.005],
+            default=0.02,
+        )
 
         # Labels
         y = np.zeros(n_samples, dtype=int)
@@ -94,7 +110,9 @@ class MLEnsemble:
             y[trend_types == 2] = np.random.choice([0, 1], size=n_ranging)
         n_volatile = np.sum(trend_types == 3)
         if n_volatile > 0:
-            y[trend_types == 3] = np.random.choice([0, 1], size=n_volatile, p=[0.55, 0.45])
+            y[trend_types == 3] = np.random.choice(
+                [0, 1], size=n_volatile, p=[0.55, 0.45]
+            )
 
         # Returns distribution shape: (n_samples, 20)
         ret = np.random.normal(mus[:, None], sigmas[:, None], size=(n_samples, 20))
@@ -126,7 +144,9 @@ class MLEnsemble:
         X[:, 19] = np.random.uniform(0.001, 0.01, size=n_samples)
 
         # Trend features (20-29)
-        r2_raw = np.abs(mus) / (sigmas + 1e-8) * 0.3 + np.random.normal(0, 0.1, size=n_samples)
+        r2_raw = np.abs(mus) / (sigmas + 1e-8) * 0.3 + np.random.normal(
+            0, 0.1, size=n_samples
+        )
         X[:, 20] = np.clip(r2_raw, 0, 1)
         X[:, 21] = mus / (sigmas + 1e-8)
         X[:, 22] = np.random.uniform(-0.1, 0.1, size=n_samples)
@@ -134,7 +154,9 @@ class MLEnsemble:
         X[:, 24] = mus * 80 + np.random.normal(0, 0.01, size=n_samples)
         X[:, 25] = mus * 50 + np.random.normal(0, 0.01, size=n_samples)
 
-        sma_means = np.select([trend_types == 0, trend_types == 1], [0.01, -0.01], default=-0.01)
+        sma_means = np.select(
+            [trend_types == 0, trend_types == 1], [0.01, -0.01], default=-0.01
+        )
         X[:, 26] = np.random.normal(sma_means, 0.02)
         X[:, 27] = np.random.normal(sma_means, 0.02)
         X[:, 28] = np.random.normal(sma_means, 0.02)
@@ -166,12 +188,15 @@ class MLEnsemble:
 
         return X, y
 
-    def _augment_with_heuristics(self, feature_vector, patterns, structure,
-                                  regime, confluence):
+    def _augment_with_heuristics(
+        self, feature_vector, patterns, structure, regime, confluence
+    ):
         """Create augmented samples from heuristic signal strengths with vectorized operations."""
         n_aug = 200
         n_feat = len(feature_vector)
-        X_aug = np.tile(feature_vector, (n_aug, 1)) + np.random.normal(0, 0.01, (n_aug, n_feat))
+        X_aug = np.tile(feature_vector, (n_aug, 1)) + np.random.normal(
+            0, 0.01, (n_aug, n_feat)
+        )
 
         bull_score = confluence.get("bull_score", 0.5)
         bear_score = confluence.get("bear_score", 0.5)
@@ -192,12 +217,19 @@ class MLEnsemble:
 
         # Base learners
         self.rf_model = RandomForestClassifier(
-            n_estimators=100, max_depth=8, min_samples_leaf=5,
-            random_state=42, n_jobs=-1
+            n_estimators=100,
+            max_depth=8,
+            min_samples_leaf=5,
+            random_state=42,
+            n_jobs=-1,
         )
         self.gb_model = GradientBoostingClassifier(
-            n_estimators=80, max_depth=5, learning_rate=0.1,
-            max_features="sqrt", min_samples_leaf=5, random_state=42
+            n_estimators=80,
+            max_depth=5,
+            learning_rate=0.1,
+            max_features="sqrt",
+            min_samples_leaf=5,
+            random_state=42,
         )
 
         # Train base learners
@@ -253,16 +285,32 @@ class MLEnsemble:
         try:
             rf_cv = cross_val_score(
                 RandomForestClassifier(
-                    n_estimators=100, max_depth=8, min_samples_leaf=5, random_state=42, n_jobs=1
+                    n_estimators=100,
+                    max_depth=8,
+                    min_samples_leaf=5,
+                    random_state=42,
+                    n_jobs=1,
                 ),
-                X_scaled, y, cv=5, scoring='accuracy', n_jobs=-1
+                X_scaled,
+                y,
+                cv=5,
+                scoring="accuracy",
+                n_jobs=-1,
             )
             gb_cv = cross_val_score(
                 GradientBoostingClassifier(
-                    n_estimators=80, max_depth=5, learning_rate=0.1,
-                    max_features="sqrt", min_samples_leaf=5, random_state=42
+                    n_estimators=80,
+                    max_depth=5,
+                    learning_rate=0.1,
+                    max_features="sqrt",
+                    min_samples_leaf=5,
+                    random_state=42,
                 ),
-                X_scaled, y, cv=5, scoring='accuracy', n_jobs=-1
+                X_scaled,
+                y,
+                cv=5,
+                scoring="accuracy",
+                n_jobs=-1,
             )
 
             return {
@@ -270,10 +318,19 @@ class MLEnsemble:
                 "rf_cv_std": round(float(np.std(rf_cv)), 4),
                 "gb_cv_mean": round(float(np.mean(gb_cv)), 4),
                 "gb_cv_std": round(float(np.std(gb_cv)), 4),
-                "ensemble_estimate": round(float(np.mean([np.mean(rf_cv), np.mean(gb_cv)])), 4),
+                "ensemble_estimate": round(
+                    float(np.mean([np.mean(rf_cv), np.mean(gb_cv)])), 4
+                ),
             }
         except Exception as e:
-            return {"rf_cv_mean": 0, "rf_cv_std": 0, "gb_cv_mean": 0, "gb_cv_std": 0, "ensemble_estimate": 0, "cv_error": str(e)}
+            return {
+                "rf_cv_mean": 0,
+                "rf_cv_std": 0,
+                "gb_cv_mean": 0,
+                "gb_cv_std": 0,
+                "ensemble_estimate": 0,
+                "cv_error": str(e),
+            }
 
     def _feature_importance(self) -> list:
         """Get feature importance from both models."""
@@ -300,6 +357,6 @@ class MLEnsemble:
 
     def _feature_name(self, idx: int) -> str:
         from analyzers.ml_feature_engineer import FeatureEngineer
+
         names = FeatureEngineer.FEATURE_NAMES
         return names[idx] if idx < len(names) else f"feature_{idx}"
-
