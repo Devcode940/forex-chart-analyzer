@@ -10,9 +10,12 @@ jobs:
   lint-and-test:
     name: Lint & Test (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     strategy:
       matrix:
-        python-version: [3.10, 3.11]
+        python-version: ["3.10", "3.11"]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -49,6 +52,7 @@ jobs:
 
       - name: Create branch and open PR if formatting changed
         id: pr
+        continue-on-error: true
         uses: peter-evans/create-pull-request@v5
         with:
           commit-message: "chore: apply automatic formatting (black + isort)"
