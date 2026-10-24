@@ -88,42 +88,46 @@ class MLEnsemble:
         y[trend_types == 2] = np.random.choice([0, 1], size=np.sum(trend_types == 2))
         y[trend_types == 3] = np.random.choice([0, 1], size=np.sum(trend_types == 3), p=[0.55, 0.45])
 
-        mus = np.select([trend_types == 0, trend_types == 1, trend_types == 2, trend_types == 3], [0.002, -0.002, 0.0, 0.0])
-        sigmas = np.select([trend_types == 0, trend_types == 1, trend_types == 2, trend_types == 3], [0.008, 0.008, 0.005, 0.02])
+        mus = np.select(
+            [trend_types == 0, trend_types == 1, trend_types == 2, trend_types == 3], [0.002, -0.002, 0.0, 0.0]
+        )
+        sigmas = np.select(
+            [trend_types == 0, trend_types == 1, trend_types == 2, trend_types == 3], [0.008, 0.008, 0.005, 0.02]
+        )
 
         # Momentum features (0-9)
         ret = np.random.normal(mus[:, None], sigmas[:, None], size=(n_samples, 20))
-        X[:, 0] = ret[:, -1]           # return_1
+        X[:, 0] = ret[:, -1]  # return_1
         X[:, 1] = np.sum(ret[:, -5:], axis=1)  # return_5
-        X[:, 2] = np.sum(ret[:, -10:], axis=1) # return_10
-        X[:, 3] = np.sum(ret, axis=1)          # return_20
-        X[:, 4] = X[:, 1]              # momentum_5
-        X[:, 5] = X[:, 2]              # momentum_10
-        X[:, 6] = X[:, 3]              # momentum_20
-        X[:, 7] = X[:, 1] * 100        # roc_5
-        X[:, 8] = X[:, 2] * 100        # roc_10
-        X[:, 9] = X[:, 3] * 100        # roc_20
+        X[:, 2] = np.sum(ret[:, -10:], axis=1)  # return_10
+        X[:, 3] = np.sum(ret, axis=1)  # return_20
+        X[:, 4] = X[:, 1]  # momentum_5
+        X[:, 5] = X[:, 2]  # momentum_10
+        X[:, 6] = X[:, 3]  # momentum_20
+        X[:, 7] = X[:, 1] * 100  # roc_5
+        X[:, 8] = X[:, 2] * 100  # roc_10
+        X[:, 9] = X[:, 3] * 100  # roc_20
 
         # Volatility features (10-19)
-        X[:, 10] = np.std(ret[:, -5:], axis=1)   # vol_5
+        X[:, 10] = np.std(ret[:, -5:], axis=1)  # vol_5
         X[:, 11] = np.std(ret[:, -10:], axis=1)  # vol_10
-        X[:, 12] = np.std(ret, axis=1)          # vol_20
-        X[:, 13] = sigmas * 1.5                 # vol_50
-        X[:, 14] = sigmas * 10                  # atr_approx
-        X[:, 15] = X[:, 10] / (X[:, 12] + 1e-8) # vol_ratio_5_20
+        X[:, 12] = np.std(ret, axis=1)  # vol_20
+        X[:, 13] = sigmas * 1.5  # vol_50
+        X[:, 14] = sigmas * 10  # atr_approx
+        X[:, 15] = X[:, 10] / (X[:, 12] + 1e-8)  # vol_ratio_5_20
         X[:, 16] = np.random.uniform(0.1, 0.5, size=n_samples)  # upper_wick_ratio
         X[:, 17] = np.random.uniform(0.1, 0.5, size=n_samples)  # lower_wick_ratio
         X[:, 18] = np.random.uniform(0.3, 0.9, size=n_samples)  # body_ratio
-        X[:, 19] = np.random.uniform(0.001, 0.01, size=n_samples) # range_ratio
+        X[:, 19] = np.random.uniform(0.001, 0.01, size=n_samples)  # range_ratio
 
         # Trend features (20-29)
         r2 = np.clip(np.abs(mus) / (sigmas + 1e-8) * 0.3 + np.random.normal(0, 0.1, size=n_samples), 0, 1)
-        X[:, 20] = r2                           # trend_r2
-        X[:, 21] = mus / (sigmas + 1e-8)        # trend_slope
-        X[:, 22] = np.random.uniform(-0.1, 0.1, size=n_samples) # trend_intercept
+        X[:, 20] = r2  # trend_r2
+        X[:, 21] = mus / (sigmas + 1e-8)  # trend_slope
+        X[:, 22] = np.random.uniform(-0.1, 0.1, size=n_samples)  # trend_intercept
         X[:, 23] = mus * 100 + np.random.normal(0, 0.01, size=n_samples)  # sma_slope_5
-        X[:, 24] = mus * 80 + np.random.normal(0, 0.01, size=n_samples)   # sma_slope_10
-        X[:, 25] = mus * 50 + np.random.normal(0, 0.01, size=n_samples)   # sma_slope_20
+        X[:, 24] = mus * 80 + np.random.normal(0, 0.01, size=n_samples)  # sma_slope_10
+        X[:, 25] = mus * 50 + np.random.normal(0, 0.01, size=n_samples)  # sma_slope_20
         center = np.where(trend_types == 0, 0.01, -0.01)
         X[:, 26] = np.random.normal(center, 0.02)  # price_vs_sma5
         X[:, 27] = np.random.normal(center, 0.02)  # price_vs_sma10
@@ -131,33 +135,32 @@ class MLEnsemble:
         X[:, 29] = np.abs(mus) / (sigmas * 2 + 1e-8)  # efficiency_ratio
 
         # Structure features (30-39)
-        X[:, 30] = np.random.randint(1, 6, size=n_samples)   # swing_high_count
-        X[:, 31] = np.random.randint(1, 6, size=n_samples)   # swing_low_count
+        X[:, 30] = np.random.randint(1, 6, size=n_samples)  # swing_high_count
+        X[:, 31] = np.random.randint(1, 6, size=n_samples)  # swing_low_count
         X[:, 32] = np.random.randint(1, 10, size=n_samples)  # last_swing_high_dist
         X[:, 33] = np.random.randint(1, 10, size=n_samples)  # last_swing_low_dist
         X[:, 34] = mus * 50 + np.random.normal(0, 0.5, size=n_samples)  # swing_high_slope
         X[:, 35] = mus * 50 + np.random.normal(0, 0.5, size=n_samples)  # swing_low_slope
-        X[:, 36] = np.random.uniform(0.5, 5, size=n_samples)             # channel_width
+        X[:, 36] = np.random.uniform(0.5, 5, size=n_samples)  # channel_width
         X[:, 37] = mus * 10 + np.random.normal(0, 0.1, size=n_samples)  # channel_slope
-        X[:, 38] = np.random.randint(0, 3, size=n_samples)   # bos_count_bull
-        X[:, 39] = np.random.randint(0, 3, size=n_samples)   # bos_count_bear
+        X[:, 38] = np.random.randint(0, 3, size=n_samples)  # bos_count_bull
+        X[:, 39] = np.random.randint(0, 3, size=n_samples)  # bos_count_bear
 
         # Statistical features (40-49)
         X[:, 40] = np.random.normal(0, 0.5, size=n_samples)  # skewness
-        X[:, 41] = np.random.normal(0, 1, size=n_samples)    # kurtosis
-        X[:, 42] = mus / (sigmas + 1e-8) * np.sqrt(252)     # sharpe_approx
-        X[:, 43] = mus / (sigmas + 1e-8) * np.sqrt(252)     # sortino_approx
+        X[:, 41] = np.random.normal(0, 1, size=n_samples)  # kurtosis
+        X[:, 42] = mus / (sigmas + 1e-8) * np.sqrt(252)  # sharpe_approx
+        X[:, 43] = mus / (sigmas + 1e-8) * np.sqrt(252)  # sortino_approx
         X[:, 44] = np.random.uniform(-0.15, -0.01, size=n_samples)  # max_drawdown
         X[:, 45] = -sigmas * 1.65  # var_95
-        X[:, 46] = -sigmas * 2.0   # cvar_95
+        X[:, 46] = -sigmas * 2.0  # cvar_95
         X[:, 47] = np.random.uniform(0.3, 0.7, size=n_samples)  # hurst_exponent
         X[:, 48] = np.random.uniform(0.2, 0.8, size=n_samples)  # mean_reversion_score
-        X[:, 49] = np.random.uniform(-0.2, 0.2, size=n_samples) # serial_correlation
+        X[:, 49] = np.random.uniform(-0.2, 0.2, size=n_samples)  # serial_correlation
 
         return X, y
 
-    def _augment_with_heuristics(self, feature_vector, patterns, structure,
-                                  regime, confluence):
+    def _augment_with_heuristics(self, feature_vector, patterns, structure, regime, confluence):
         """Vectorized heuristic data augmentation."""
         n_aug = 200
         X_aug = np.tile(feature_vector, (n_aug, 1))
@@ -182,12 +185,10 @@ class MLEnsemble:
 
         # Base learners (tuned hyperparameters for faster convergence & execution)
         self.rf_model = RandomForestClassifier(
-            n_estimators=100, max_depth=8, min_samples_leaf=5,
-            random_state=42, n_jobs=-1
+            n_estimators=100, max_depth=8, min_samples_leaf=5, random_state=42, n_jobs=-1
         )
         self.gb_model = GradientBoostingClassifier(
-            n_estimators=80, max_depth=5, learning_rate=0.1,
-            min_samples_leaf=5, max_features='sqrt', random_state=42
+            n_estimators=80, max_depth=5, learning_rate=0.1, min_samples_leaf=5, max_features="sqrt", random_state=42
         )
 
         # Train base learners
@@ -243,12 +244,26 @@ class MLEnsemble:
         try:
             rf_cv = cross_val_score(
                 RandomForestClassifier(n_estimators=100, max_depth=8, min_samples_leaf=5, random_state=42, n_jobs=1),
-                X_scaled, y, cv=5, scoring='accuracy', n_jobs=-1
+                X_scaled,
+                y,
+                cv=5,
+                scoring="accuracy",
+                n_jobs=-1,
             )
             gb_cv = cross_val_score(
-                GradientBoostingClassifier(n_estimators=80, max_depth=5, learning_rate=0.1,
-                                           min_samples_leaf=5, max_features='sqrt', random_state=42),
-                X_scaled, y, cv=5, scoring='accuracy', n_jobs=-1
+                GradientBoostingClassifier(
+                    n_estimators=80,
+                    max_depth=5,
+                    learning_rate=0.1,
+                    min_samples_leaf=5,
+                    max_features="sqrt",
+                    random_state=42,
+                ),
+                X_scaled,
+                y,
+                cv=5,
+                scoring="accuracy",
+                n_jobs=-1,
             )
 
             return {
