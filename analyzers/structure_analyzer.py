@@ -4,8 +4,9 @@ Analyzes market structure: trend direction, swing highs/lows, market phases.
 """
 
 import numpy as np
-from scipy.signal import find_peaks
 from scipy.ndimage import gaussian_filter1d
+from scipy.signal import find_peaks
+
 
 class StructureAnalyzer:
     """Analyzes market structure from extracted price data."""
@@ -62,37 +63,47 @@ class StructureAnalyzer:
                 "centers": inverted_centers,
                 "highs": inverted_tops,
                 "lows": inverted_bottoms,
-                "smoothed": smoothed.tolist()
-            }
+                "smoothed": smoothed.tolist(),
+            },
         }
 
-    def _detect_swings(self, smoothed: np.ndarray, x_positions: list, image_height: int):
+    def _detect_swings(
+        self, smoothed: np.ndarray, x_positions: list, image_height: int
+    ):
         """Detect swing highs and swing lows in the price series."""
         distance = max(3, len(smoothed) // 20)
         prominence = np.ptp(smoothed) * 0.045 if len(smoothed) > 0 else 0.01
 
-        maxima_indices, _ = find_peaks(smoothed, distance=distance, prominence=prominence)
-        minima_indices, _ = find_peaks(-smoothed, distance=distance, prominence=prominence)
+        maxima_indices, _ = find_peaks(
+            smoothed, distance=distance, prominence=prominence
+        )
+        minima_indices, _ = find_peaks(
+            -smoothed, distance=distance, prominence=prominence
+        )
 
         self.swing_highs = []
         for idx in maxima_indices:
             if idx < len(x_positions):
-                self.swing_highs.append({
-                    "index": int(idx),
-                    "x": x_positions[idx],
-                    "price_y": int(image_height - smoothed[idx]),
-                    "value": float(smoothed[idx])
-                })
+                self.swing_highs.append(
+                    {
+                        "index": int(idx),
+                        "x": x_positions[idx],
+                        "price_y": int(image_height - smoothed[idx]),
+                        "value": float(smoothed[idx]),
+                    }
+                )
 
         self.swing_lows = []
         for idx in minima_indices:
             if idx < len(x_positions):
-                self.swing_lows.append({
-                    "index": int(idx),
-                    "x": x_positions[idx],
-                    "price_y": int(image_height - smoothed[idx]),
-                    "value": float(smoothed[idx])
-                })
+                self.swing_lows.append(
+                    {
+                        "index": int(idx),
+                        "x": x_positions[idx],
+                        "price_y": int(image_height - smoothed[idx]),
+                        "value": float(smoothed[idx]),
+                    }
+                )
 
     def _determine_trend(self) -> dict:
         """Determine the overall trend direction and strength."""
@@ -131,7 +142,9 @@ class StructureAnalyzer:
     def _detect_structure_breaks(self) -> list:
         """Detect market structure breaks (BOS - Break of Structure)."""
         breaks = []
-        all_swings = [(s, "high") for s in self.swing_highs] + [(s, "low") for s in self.swing_lows]
+        all_swings = [(s, "high") for s in self.swing_highs] + [
+            (s, "low") for s in self.swing_lows
+        ]
         all_swings.sort(key=lambda x: x[0]["index"])
 
         for i in range(1, len(all_swings)):
@@ -141,22 +154,26 @@ class StructureAnalyzer:
             # Bullish BOS: current swing low breaks above previous swing high
             if prev[1] == "high" and curr[1] == "low":
                 if curr[0]["value"] > prev[0]["value"]:
-                    breaks.append({
-                        "type": "BULLISH_BOS",
-                        "index": curr[0]["index"],
-                        "x": curr[0]["x"],
-                        "price_y": curr[0]["price_y"]
-                    })
+                    breaks.append(
+                        {
+                            "type": "BULLISH_BOS",
+                            "index": curr[0]["index"],
+                            "x": curr[0]["x"],
+                            "price_y": curr[0]["price_y"],
+                        }
+                    )
 
             # Bearish BOS: current swing high breaks below previous swing low
             if prev[1] == "low" and curr[1] == "high":
                 if curr[0]["value"] < prev[0]["value"]:
-                    breaks.append({
-                        "type": "BEARISH_BOS",
-                        "index": curr[0]["index"],
-                        "x": curr[0]["x"],
-                        "price_y": curr[0]["price_y"]
-                    })
+                    breaks.append(
+                        {
+                            "type": "BEARISH_BOS",
+                            "index": curr[0]["index"],
+                            "x": curr[0]["x"],
+                            "price_y": curr[0]["price_y"],
+                        }
+                    )
 
         return breaks
 
@@ -171,24 +188,31 @@ class StructureAnalyzer:
         # Simple phase detection based on slope and volatility
         window = max(5, n // 6)
         for i in range(0, n - window, window // 2):
-            segment = smoothed[i:i + window]
+            segment = smoothed[i : i + window]
             slope = self._calc_trend_slope(segment.tolist())
             volatility = np.std(segment)
 
             if slope > 0.05:
                 phase = "MARKUP" if volatility < np.std(smoothed) else "STRONG_UPTREND"
             elif slope < -0.05:
-                phase = "MARKDOWN" if volatility < np.std(smoothed) else "STRONG_DOWNTREND"
+                phase = (
+                    "MARKDOWN" if volatility < np.std(smoothed) else "STRONG_DOWNTREND"
+                )
             else:
-                phase = "ACCUMULATION" if i < n // 3 else "DISTRIBUTION" if i > 2 * n // 3 else "CONSOLIDATION"
+                phase = (
+                    "ACCUMULATION"
+                    if i < n // 3
+                    else "DISTRIBUTION" if i > 2 * n // 3 else "CONSOLIDATION"
+                )
 
-            phases.append({
-                "phase": phase,
-                "start": i,
-                "end": min(i + window, n),
-                "slope": float(slope),
-                "volatility": float(volatility)
-            })
+            phases.append(
+                {
+                    "phase": phase,
+                    "start": i,
+                    "end": min(i + window, n),
+                    "slope": float(slope),
+                    "volatility": float(volatility),
+                }
+            )
 
         return phases
-
