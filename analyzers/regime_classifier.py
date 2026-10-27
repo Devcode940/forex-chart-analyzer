@@ -6,6 +6,7 @@ Classifies the current market regime: Trending, Ranging, Volatile, Quiet.
 import numpy as np
 from scipy.ndimage import gaussian_filter1d
 
+
 class RegimeClassifier:
     """Classifies the current market regime."""
 
@@ -21,7 +22,7 @@ class RegimeClassifier:
             return {
                 "regime": "INSUFFICIENT_DATA",
                 "confidence": 0.0,
-                "details": "Not enough price data"
+                "details": "Not enough price data",
             }
 
         # Calculate regime indicators
@@ -42,8 +43,13 @@ class RegimeClassifier:
             self.regime = "RANGING"
             self.sub_regime = "CONSOLIDATION"
             confidence = min(0.9, 0.5 + (1 - efficiency) * 0.4)
-        elif volatility > np.percentile([self._calc_volatility(smoothed[i:i+20])
-                                          for i in range(0, len(smoothed)-20, 10)], 75):
+        elif volatility > np.percentile(
+            [
+                self._calc_volatility(smoothed[i : i + 20])
+                for i in range(0, len(smoothed) - 20, 10)
+            ],
+            75,
+        ):
             self.regime = "VOLATILE"
             self.sub_regime = "HIGH_VOLATILITY"
             confidence = 0.6
@@ -77,11 +83,11 @@ class RegimeClassifier:
                 "trend_strength": round(float(trend_strength), 3),
                 "volatility": round(float(volatility), 3),
                 "efficiency_ratio": round(float(efficiency), 3),
-                "adx_approximation": round(float(adx_approx), 3)
+                "adx_approximation": round(float(adx_approx), 3),
             },
             "trading_style": trading_style,
             "risk_level": risk_level,
-            "recommendation": self._get_regime_recommendation()
+            "recommendation": self._get_regime_recommendation(),
         }
 
     def _calc_trend_strength(self, smoothed: np.ndarray) -> float:
@@ -134,19 +140,30 @@ class RegimeClassifier:
             "TRENDING": "Trend Following (ride the momentum)",
             "RANGING": "Mean Reversion (buy support, sell resistance)",
             "VOLATILE": "Reduced Position Sizing (wait for clarity)",
-            "TRANSITIONAL": "Breakout Strategy (wait for confirmation)"
+            "TRANSITIONAL": "Breakout Strategy (wait for confirmation)",
         }
         return styles.get(self.regime, "Cautious")
 
     def _get_risk_level(self) -> dict:
         """Get risk level recommendation."""
         levels = {
-            "TRENDING": {"level": "MODERATE", "position_sizing": "Standard (1-2% risk)"},
+            "TRENDING": {
+                "level": "MODERATE",
+                "position_sizing": "Standard (1-2% risk)",
+            },
             "RANGING": {"level": "LOW", "position_sizing": "Reduced (0.5-1% risk)"},
-            "VOLATILE": {"level": "HIGH", "position_sizing": "Minimum (0.25-0.5% risk)"},
-            "TRANSITIONAL": {"level": "MODERATE-HIGH", "position_sizing": "Cautious (0.5-1% risk)"}
+            "VOLATILE": {
+                "level": "HIGH",
+                "position_sizing": "Minimum (0.25-0.5% risk)",
+            },
+            "TRANSITIONAL": {
+                "level": "MODERATE-HIGH",
+                "position_sizing": "Cautious (0.5-1% risk)",
+            },
         }
-        return levels.get(self.regime, {"level": "UNKNOWN", "position_sizing": "Minimal"})
+        return levels.get(
+            self.regime, {"level": "UNKNOWN", "position_sizing": "Minimal"}
+        )
 
     def _get_regime_recommendation(self) -> str:
         """Get specific trading recommendation based on regime."""
@@ -154,7 +171,6 @@ class RegimeClassifier:
             "TRENDING": "Look for pullback entries in the trend direction. Use moving averages or trendlines for entries. Avoid counter-trend trades.",
             "RANGING": "Trade between support and resistance. Use oscillators (RSI, Stochastic) for entry timing. Avoid breakout trades without confirmation.",
             "VOLATILE": "Reduce position sizes and widen stops. Wait for volatility to compress before entering. Consider options strategies if available.",
-            "TRANSITIONAL": "Set alerts at key levels. Wait for confirmed breakout with volume. Have orders ready but don't preempt the move."
+            "TRANSITIONAL": "Set alerts at key levels. Wait for confirmed breakout with volume. Have orders ready but don't preempt the move.",
         }
         return recommendations.get(self.regime, "Wait for clearer market conditions.")
-
