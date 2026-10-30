@@ -1,0 +1,3 @@
+## 2025-05-18 - Vectorized Synthetic Data Generation and Estimator Parallelization in MLEnsemble
+**Learning:** Generating synthetic training data row-by-row in Python loops creates significant latency overhead (~550ms for 2,000 samples). In addition, running 5-fold cross-validation on multi-threaded estimators without explicit `n_jobs=1` on internal models causes severe CPU thread oversubscription.
+**Action:** Vectorize all synthetic feature generation and heuristic augmentation using 2D NumPy array operations, and pass `n_jobs=1` to internal estimators when parallelizing cross-validation across folds with `cross_val_score(..., n_jobs=-1)`.
