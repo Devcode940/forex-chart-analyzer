@@ -1,2 +1,10 @@
 [tool.isort]
 profile = "black"
+
+[tool.mypy]
+ignore_missing_imports = true
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "analyzers.ml_ensemble"
+ignore_errors = false
