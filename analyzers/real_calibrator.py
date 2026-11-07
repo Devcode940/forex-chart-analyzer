@@ -8,7 +8,9 @@ This is the engine that makes your "85% confidence" claim honest.
 """
 
 import numpy as np
+
 from analyzers.trade_database import TradeDatabase
+
 
 class RealCalibrator:
     """Calibrates heuristic confidence using MEASURED historical win rates."""
@@ -16,8 +18,9 @@ class RealCalibrator:
     def __init__(self, db: TradeDatabase = None):
         self.db = db or TradeDatabase()
 
-    def calibrate(self, heuristic_score: float, confluence_grade: str,
-                  pattern_results: list) -> dict:
+    def calibrate(
+        self, heuristic_score: float, confluence_grade: str, pattern_results: list
+    ) -> dict:
         """
         Calibrate a heuristic confidence score against measured data.
 
@@ -35,13 +38,15 @@ class RealCalibrator:
         for p in pattern_results:
             stats = self.db.get_pattern_stats(p.get("name", ""))
             if stats:
-                pattern_cals.append({
-                    "pattern": p["name"],
-                    "heuristic": p.get("confidence", 0),
-                    "measured": stats["win_rate"],
-                    "sample": stats["total_occurrences"],
-                    "adjustment": stats["win_rate"] - p.get("confidence", 0),
-                })
+                pattern_cals.append(
+                    {
+                        "pattern": p["name"],
+                        "heuristic": p.get("confidence", 0),
+                        "measured": stats["win_rate"],
+                        "sample": stats["total_occurrences"],
+                        "adjustment": stats["win_rate"] - p.get("confidence", 0),
+                    }
+                )
 
         # 4. Calculate weighted calibrated probability
         calibrated_probs = []
@@ -66,7 +71,9 @@ class RealCalibrator:
 
         # Weighted average
         if calibrated_probs and sum(weights) > 0:
-            calibrated_prob = sum(p * w for p, w in zip(calibrated_probs, weights)) / sum(weights)
+            calibrated_prob = sum(
+                p * w for p, w in zip(calibrated_probs, weights)
+            ) / sum(weights)
         else:
             calibrated_prob = heuristic_score  # Fallback to heuristic
 
@@ -80,11 +87,17 @@ class RealCalibrator:
             "is_overconfident": heuristic_score > calibrated_prob + 0.05,
             "is_underconfident": heuristic_score < calibrated_prob - 0.05,
             "bucket_calibration": dict(bucket_cal) if bucket_cal else None,
-            "grade_calibration": {
-                "grade": confluence_grade,
-                "measured_win_rate": grade_wr,
-                "sample_size": grade_stats.get(confluence_grade, {}).get("total_trades", 0),
-            } if grade_wr is not None else None,
+            "grade_calibration": (
+                {
+                    "grade": confluence_grade,
+                    "measured_win_rate": grade_wr,
+                    "sample_size": grade_stats.get(confluence_grade, {}).get(
+                        "total_trades", 0
+                    ),
+                }
+                if grade_wr is not None
+                else None
+            ),
             "pattern_calibrations": pattern_cals,
             "honest_assessment": self._honest_assessment(
                 heuristic_score, calibrated_prob, adjustment, grade_wr, pattern_cals
@@ -138,4 +151,3 @@ class RealCalibrator:
                 )
 
         return " ".join(lines)
-
