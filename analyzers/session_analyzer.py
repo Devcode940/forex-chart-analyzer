@@ -12,6 +12,7 @@ This is critical because:
 
 import numpy as np
 
+
 class SessionAnalyzer:
     """
     Analyzes the trading session context based on the chart's
@@ -57,8 +58,9 @@ class SessionAnalyzer:
         self.session = None
         self.volatility_expectation = "MODERATE"
 
-    def analyze(self, price_series: dict, regime_results: dict,
-                pair: str = "EURUSD") -> dict:
+    def analyze(
+        self, price_series: dict, regime_results: dict, pair: str = "EURUSD"
+    ) -> dict:
         """
         Infer session context from price behavior and provide
         session-specific trading recommendations.
@@ -73,10 +75,14 @@ class SessionAnalyzer:
         range_expansion = self._calc_range_expansion(smoothed)
 
         # Infer session from behavior
-        inferred_session = self._infer_session(volatility, range_expansion, regime_results)
+        inferred_session = self._infer_session(
+            volatility, range_expansion, regime_results
+        )
 
         # Generate session-specific recommendations
-        recommendations = self._get_session_recommendations(inferred_session, pair, regime_results)
+        recommendations = self._get_session_recommendations(
+            inferred_session, pair, regime_results
+        )
 
         # Volatility expectations
         vol_expectation = self._get_volatility_expectation(inferred_session, pair)
@@ -122,8 +128,8 @@ class SessionAnalyzer:
 
         # Compare recent range to earlier range
         n = len(smoothed)
-        first_half_range = np.max(smoothed[:n // 2]) - np.min(smoothed[:n // 2])
-        second_half_range = np.max(smoothed[n // 2:]) - np.min(smoothed[n // 2:])
+        first_half_range = np.max(smoothed[: n // 2]) - np.min(smoothed[: n // 2])
+        second_half_range = np.max(smoothed[n // 2 :]) - np.min(smoothed[n // 2 :])
 
         if first_half_range > 0:
             ratio = second_half_range / first_half_range
@@ -139,8 +145,9 @@ class SessionAnalyzer:
 
         return {"direction": direction, "ratio": round(ratio, 2)}
 
-    def _infer_session(self, volatility: dict, range_expansion: dict,
-                       regime: dict) -> str:
+    def _infer_session(
+        self, volatility: dict, range_expansion: dict, regime: dict
+    ) -> str:
         """Infer which session the chart represents based on behavior."""
         vol_level = volatility.get("level", "MODERATE")
         range_dir = range_expansion.get("direction", "STABLE")
@@ -156,8 +163,9 @@ class SessionAnalyzer:
         else:
             return "LONDON"  # Default most common active session
 
-    def _get_session_recommendations(self, session: str, pair: str,
-                                      regime: dict) -> dict:
+    def _get_session_recommendations(
+        self, session: str, pair: str, regime: dict
+    ) -> dict:
         """Get trading recommendations specific to the current session."""
         base_recs = {
             "ASIAN": {
@@ -268,5 +276,6 @@ class SessionAnalyzer:
             "XAUUSD": {"best": "LONDON_NY_OVERLAP", "second": "NEW_YORK"},
             "USDCAD": {"best": "NEW_YORK", "second": "LONDON_NY_OVERLAP"},
         }
-        return pair_sessions.get(pair, {"best": "LONDON_NY_OVERLAP", "second": "LONDON"})
-
+        return pair_sessions.get(
+            pair, {"best": "LONDON_NY_OVERLAP", "second": "LONDON"}
+        )
