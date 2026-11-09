@@ -7,14 +7,17 @@ then predicts the probability of a profitable trade for the current setup.
 Uses a stacked ensemble: Random Forest + Gradient Boosting → Meta-Learner.
 """
 
+import warnings
+
 import numpy as np
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import cross_val_score
 from sklearn.pipeline import Pipeline
-import warnings
-warnings.filterwarnings('ignore')
+from sklearn.preprocessing import StandardScaler
+
+warnings.filterwarnings("ignore")
+
 
 class MLEnsemble:
     """
@@ -34,11 +37,14 @@ class MLEnsemble:
         self.is_trained = False
         self.training_stats = {}
 
-    def train_and_predict(self, feature_vector: np.ndarray,
-                          pattern_results: list,
-                          structure_results: dict,
-                          regime_results: dict,
-                          confluence_results: dict) -> dict:
+    def train_and_predict(
+        self,
+        feature_vector: np.ndarray,
+        pattern_results: list,
+        structure_results: dict,
+        regime_results: dict,
+        confluence_results: dict,
+    ) -> dict:
         """
         Full ML pipeline: generate data, train, predict.
         """
@@ -46,7 +52,11 @@ class MLEnsemble:
             return {"error": "No features extracted"}
         X_train, y_train = self._generate_synthetic_data(n_samples=2000)
         X_aug, y_aug = self._augment_with_heuristics(
-            feature_vector, pattern_results, structure_results, regime_results, confluence_results
+            feature_vector,
+            pattern_results,
+            structure_results,
+            regime_results,
+            confluence_results,
         )
         X_train = np.vstack([X_train, X_aug])
         y_train = np.concatenate([y_train, y_aug])
@@ -75,122 +85,122 @@ class MLEnsemble:
         Each sample represents a "snapshot" of market features.
         Label = 1 if a long trade would have been profitable, 0 if short.
 
-        The synthetic data encodes domain knowledge:
-        - Strong uptrend + low volatility → likely long winner
-        - Strong downtrend + low volatility → likely short winner
-        - High volatility + low efficiency → likely loser both ways
-        - High efficiency + bullish signals → long winner
+        Optimized via 2D NumPy vectorization to bypass per-sample loop overhead.
         """
-        np.random.seed(42)
+        rng = np.random.default_rng(42)
         n_features = 50  # Match FeatureEngineer output
 
-        X = np.zeros((n_samples, n_features))
-        y = np.zeros(n_samples, dtype=int)
+        # 0: bullish, 1: bearish, 2: ranging, 3: volatile
+        trend_idx = rng.choice(4, size=n_samples, p=[0.3, 0.3, 0.25, 0.15])
+        mu_map = np.array([0.002, -0.002, 0.0, 0.0])
+        sigma_map = np.array([0.008, 0.008, 0.005, 0.02])
+        mu = mu_map[trend_idx]
+        sigma = sigma_map[trend_idx]
 
-        for i in range(n_samples):
-            # Generate base returns distribution
-            trend_type = np.random.choice(["bullish", "bearish", "ranging", "volatile"], p=[0.3, 0.3, 0.25, 0.15])
+        y = np.empty(n_samples, dtype=int)
+        y[trend_idx == 0] = 1
+        y[trend_idx == 1] = 0
+        ranging_mask = trend_idx == 2
+        y[ranging_mask] = rng.integers(0, 2, size=np.count_nonzero(ranging_mask))
+        volatile_mask = trend_idx == 3
+        y[volatile_mask] = rng.choice(
+            [0, 1], size=np.count_nonzero(volatile_mask), p=[0.55, 0.45]
+        )
 
-            if trend_type == "bullish":
-                mu, sigma = 0.002, 0.008
-                y[i] = 1
-            elif trend_type == "bearish":
-                mu, sigma = -0.002, 0.008
-                y[i] = 0
-            elif trend_type == "ranging":
-                mu, sigma = 0, 0.005
-                y[i] = np.random.choice([0, 1])
-            else:  # volatile
-                mu, sigma = 0, 0.02
-                y[i] = np.random.choice([0, 1], p=[0.55, 0.45])
+        # Momentum features (0-9) - vectorized 2D normal sampling
+        ret = rng.normal(mu[:, None], sigma[:, None], size=(n_samples, 20))
+        ret_5 = ret[:, -5:]
+        ret_10 = ret[:, -10:]
+        sum_5 = ret_5.sum(axis=1)
+        sum_10 = ret_10.sum(axis=1)
+        sum_20 = ret.sum(axis=1)
 
-            # Momentum features (0-9)
-            ret = np.random.normal(mu, sigma, 20)
-            X[i, 0] = ret[-1]           # return_1
-            X[i, 1] = np.sum(ret[-5:])  # return_5
-            X[i, 2] = np.sum(ret[-10:]) # return_10
-            X[i, 3] = np.sum(ret)       # return_20
-            X[i, 4] = np.sum(ret[-5:])  # momentum_5
-            X[i, 5] = np.sum(ret[-10:]) # momentum_10
-            X[i, 6] = np.sum(ret)       # momentum_20
-            base_price = 1.0
-            X[i, 7] = (ret[-5:].sum() / base_price * 100) if base_price > 0 else 0  # roc_5
-            X[i, 8] = (ret[-10:].sum() / base_price * 100) if base_price > 0 else 0 # roc_10
-            X[i, 9] = (ret.sum() / base_price * 100) if base_price > 0 else 0       # roc_20
+        X = np.empty((n_samples, n_features))
+        X[:, 0] = ret[:, -1]
+        X[:, 1] = sum_5
+        X[:, 2] = sum_10
+        X[:, 3] = sum_20
+        X[:, 4] = sum_5
+        X[:, 5] = sum_10
+        X[:, 6] = sum_20
+        X[:, 7] = sum_5 * 100.0
+        X[:, 8] = sum_10 * 100.0
+        X[:, 9] = sum_20 * 100.0
 
-            # Volatility features (10-19)
-            X[i, 10] = np.std(ret[-5:])    # vol_5
-            X[i, 11] = np.std(ret[-10:])   # vol_10
-            X[i, 12] = np.std(ret)         # vol_20
-            X[i, 13] = sigma * 1.5         # vol_50
-            X[i, 14] = sigma * 10          # atr_approx
-            X[i, 15] = X[i, 10] / (X[i, 12] + 1e-8)  # vol_ratio_5_20
-            X[i, 16] = np.random.uniform(0.1, 0.5)    # upper_wick_ratio
-            X[i, 17] = np.random.uniform(0.1, 0.5)    # lower_wick_ratio
-            X[i, 18] = np.random.uniform(0.3, 0.9)    # body_ratio
-            X[i, 19] = np.random.uniform(0.001, 0.01) # range_ratio
+        # Volatility features (10-19)
+        std_5 = np.std(ret_5, axis=1)
+        std_10 = np.std(ret_10, axis=1)
+        std_20 = np.std(ret, axis=1)
+        X[:, 10] = std_5
+        X[:, 11] = std_10
+        X[:, 12] = std_20
+        X[:, 13] = sigma * 1.5
+        X[:, 14] = sigma * 10.0
+        X[:, 15] = std_5 / (std_20 + 1e-8)
+        X[:, 16] = rng.uniform(0.1, 0.5, size=n_samples)
+        X[:, 17] = rng.uniform(0.1, 0.5, size=n_samples)
+        X[:, 18] = rng.uniform(0.3, 0.9, size=n_samples)
+        X[:, 19] = rng.uniform(0.001, 0.01, size=n_samples)
 
-            # Trend features (20-29)
-            r2 = max(0, min(1, abs(mu) / (sigma + 1e-8) * 0.3 + np.random.normal(0, 0.1)))
-            X[i, 20] = r2                           # trend_r2
-            X[i, 21] = mu / (sigma + 1e-8)          # trend_slope
-            X[i, 22] = np.random.uniform(-0.1, 0.1) # trend_intercept
-            X[i, 23] = mu * 100 + np.random.normal(0, 0.01)  # sma_slope_5
-            X[i, 24] = mu * 80 + np.random.normal(0, 0.01)   # sma_slope_10
-            X[i, 25] = mu * 50 + np.random.normal(0, 0.01)   # sma_slope_20
-            X[i, 26] = np.random.normal(0.01 if trend_type == "bullish" else -0.01, 0.02)  # price_vs_sma5
-            X[i, 27] = np.random.normal(0.01 if trend_type == "bullish" else -0.01, 0.02)  # price_vs_sma10
-            X[i, 28] = np.random.normal(0.01 if trend_type == "bullish" else -0.01, 0.02)  # price_vs_sma20
-            X[i, 29] = abs(mu) / (sigma * 2 + 1e-8)  # efficiency_ratio
+        # Trend features (20-29)
+        r2_raw = np.abs(mu) / (sigma + 1e-8) * 0.3 + rng.normal(0, 0.1, size=n_samples)
+        X[:, 20] = np.clip(r2_raw, 0, 1)
+        X[:, 21] = mu / (sigma + 1e-8)
+        X[:, 22] = rng.uniform(-0.1, 0.1, size=n_samples)
+        X[:, 23] = mu * 100 + rng.normal(0, 0.01, size=n_samples)
+        X[:, 24] = mu * 80 + rng.normal(0, 0.01, size=n_samples)
+        X[:, 25] = mu * 50 + rng.normal(0, 0.01, size=n_samples)
+        center_p = np.where(trend_idx == 0, 0.01, np.where(trend_idx == 1, -0.01, 0.0))
+        X[:, 26] = rng.normal(center_p, 0.02)
+        X[:, 27] = rng.normal(center_p, 0.02)
+        X[:, 28] = rng.normal(center_p, 0.02)
+        X[:, 29] = np.abs(mu) / (sigma * 2 + 1e-8)
 
-            # Structure features (30-39)
-            X[i, 30] = np.random.randint(1, 6)  # swing_high_count
-            X[i, 31] = np.random.randint(1, 6)  # swing_low_count
-            X[i, 32] = np.random.randint(1, 10)  # last_swing_high_dist
-            X[i, 33] = np.random.randint(1, 10)  # last_swing_low_dist
-            X[i, 34] = mu * 50 + np.random.normal(0, 0.5)  # swing_high_slope
-            X[i, 35] = mu * 50 + np.random.normal(0, 0.5)  # swing_low_slope
-            X[i, 36] = np.random.uniform(0.5, 5)  # channel_width
-            X[i, 37] = mu * 10 + np.random.normal(0, 0.1)  # channel_slope
-            X[i, 38] = np.random.randint(0, 3)  # bos_count_bull
-            X[i, 39] = np.random.randint(0, 3)  # bos_count_bear
+        # Structure features (30-39)
+        X[:, 30] = rng.integers(1, 6, size=n_samples)
+        X[:, 31] = rng.integers(1, 6, size=n_samples)
+        X[:, 32] = rng.integers(1, 10, size=n_samples)
+        X[:, 33] = rng.integers(1, 10, size=n_samples)
+        X[:, 34] = mu * 50 + rng.normal(0, 0.5, size=n_samples)
+        X[:, 35] = mu * 50 + rng.normal(0, 0.5, size=n_samples)
+        X[:, 36] = rng.uniform(0.5, 5.0, size=n_samples)
+        X[:, 37] = mu * 10 + rng.normal(0, 0.1, size=n_samples)
+        X[:, 38] = rng.integers(0, 3, size=n_samples)
+        X[:, 39] = rng.integers(0, 3, size=n_samples)
 
-            # Statistical features (40-49)
-            X[i, 40] = np.random.normal(0, 0.5)  # skewness
-            X[i, 41] = np.random.normal(0, 1)    # kurtosis
-            X[i, 42] = mu / (sigma + 1e-8) * np.sqrt(252)  # sharpe_approx
-            X[i, 43] = mu / (sigma + 1e-8) * np.sqrt(252)  # sortino_approx
-            X[i, 44] = np.random.uniform(-0.15, -0.01)  # max_drawdown
-            X[i, 45] = -sigma * 1.65  # var_95
-            X[i, 46] = -sigma * 2.0   # cvar_95
-            X[i, 47] = np.random.uniform(0.3, 0.7)  # hurst_exponent
-            X[i, 48] = np.random.uniform(0.2, 0.8)  # mean_reversion_score
-            X[i, 49] = np.random.uniform(-0.2, 0.2)  # serial_correlation
+        # Statistical features (40-49)
+        X[:, 40] = rng.normal(0, 0.5, size=n_samples)
+        X[:, 41] = rng.normal(0, 1.0, size=n_samples)
+        sharpe = mu / (sigma + 1e-8) * np.sqrt(252)
+        X[:, 42] = sharpe
+        X[:, 43] = sharpe
+        X[:, 44] = rng.uniform(-0.15, -0.01, size=n_samples)
+        X[:, 45] = -sigma * 1.65
+        X[:, 46] = -sigma * 2.0
+        X[:, 47] = rng.uniform(0.3, 0.7, size=n_samples)
+        X[:, 48] = rng.uniform(0.2, 0.8, size=n_samples)
+        X[:, 49] = rng.uniform(-0.2, 0.2, size=n_samples)
 
         return X, y
 
-    def _augment_with_heuristics(self, feature_vector, patterns, structure,
-                                  regime, confluence):
-        """Create augmented samples from heuristic signal strengths."""
+    def _augment_with_heuristics(
+        self, feature_vector, patterns, structure, regime, confluence
+    ):
+        """Create augmented samples from heuristic signal strengths vectorized with NumPy."""
         n_aug = 200
-        X_aug = np.tile(feature_vector, (n_aug, 1))
-        y_aug = np.zeros(n_aug, dtype=int)
+        noise = np.random.normal(0, 0.01, (n_aug, len(feature_vector)))
+        X_aug = np.tile(feature_vector, (n_aug, 1)) + noise
 
         # Determine label from heuristics
         bull_score = confluence.get("bull_score", 0.5)
         bear_score = confluence.get("bear_score", 0.5)
 
-        for i in range(n_aug):
-            noise = np.random.normal(0, 0.01, X_aug.shape[1])
-            X_aug[i] += noise
-
-            # Label based on confluence with some randomness
-            if bull_score > bear_score + 0.1:
-                y_aug[i] = 1 if np.random.random() < 0.7 else 0
-            elif bear_score > bull_score + 0.1:
-                y_aug[i] = 0 if np.random.random() < 0.7 else 1
-            else:
-                y_aug[i] = np.random.choice([0, 1])
+        if bull_score > bear_score + 0.1:
+            y_aug = (np.random.random(n_aug) < 0.7).astype(int)
+        elif bear_score > bull_score + 0.1:
+            y_aug = (np.random.random(n_aug) >= 0.7).astype(int)
+        else:
+            y_aug = np.random.randint(0, 2, size=n_aug)
 
         return X_aug, y_aug
 
@@ -199,14 +209,21 @@ class MLEnsemble:
         # Scale features
         X_scaled = self.scaler.fit_transform(X)
 
-        # Base learners
+        # Base learners (optimized hyperparameters for latency and accuracy)
         self.rf_model = RandomForestClassifier(
-            n_estimators=200, max_depth=8, min_samples_leaf=5,
-            random_state=42, n_jobs=-1
+            n_estimators=100,
+            max_depth=8,
+            min_samples_leaf=5,
+            random_state=42,
+            n_jobs=-1,
         )
         self.gb_model = GradientBoostingClassifier(
-            n_estimators=150, max_depth=5, learning_rate=0.1,
-            min_samples_leaf=5, random_state=42
+            n_estimators=80,
+            max_depth=4,
+            max_features="sqrt",
+            learning_rate=0.1,
+            min_samples_leaf=5,
+            random_state=42,
         )
 
         # Train base learners
@@ -256,18 +273,40 @@ class MLEnsemble:
         }
 
     def _cross_validate(self, X, y) -> dict:
-        """Run cross-validation on the base models."""
+        """Run cross-validation on the base models in parallel across folds."""
         X_scaled = self.scaler.transform(X)
 
         try:
+            # Parallelize cross-validation folds across available CPU cores (n_jobs=-1).
+            # Underlying RF estimator uses n_jobs=1 to avoid thread oversubscription.
             rf_cv = cross_val_score(
-                RandomForestClassifier(n_estimators=200, max_depth=8, min_samples_leaf=5, random_state=42),
-                X_scaled, y, cv=5, scoring='accuracy'
+                RandomForestClassifier(
+                    n_estimators=100,
+                    max_depth=8,
+                    min_samples_leaf=5,
+                    random_state=42,
+                    n_jobs=1,
+                ),
+                X_scaled,
+                y,
+                cv=5,
+                scoring="accuracy",
+                n_jobs=-1,
             )
             gb_cv = cross_val_score(
-                GradientBoostingClassifier(n_estimators=150, max_depth=5, learning_rate=0.1,
-                                           min_samples_leaf=5, random_state=42),
-                X_scaled, y, cv=5, scoring='accuracy'
+                GradientBoostingClassifier(
+                    n_estimators=80,
+                    max_depth=4,
+                    max_features="sqrt",
+                    learning_rate=0.1,
+                    min_samples_leaf=5,
+                    random_state=42,
+                ),
+                X_scaled,
+                y,
+                cv=5,
+                scoring="accuracy",
+                n_jobs=-1,
             )
 
             return {
@@ -275,10 +314,19 @@ class MLEnsemble:
                 "rf_cv_std": round(float(np.std(rf_cv)), 4),
                 "gb_cv_mean": round(float(np.mean(gb_cv)), 4),
                 "gb_cv_std": round(float(np.std(gb_cv)), 4),
-                "ensemble_estimate": round(float(np.mean([np.mean(rf_cv), np.mean(gb_cv)])), 4),
+                "ensemble_estimate": round(
+                    float(np.mean([np.mean(rf_cv), np.mean(gb_cv)])), 4
+                ),
             }
         except Exception as e:
-            return {"rf_cv_mean": 0, "rf_cv_std": 0, "gb_cv_mean": 0, "gb_cv_std": 0, "ensemble_estimate": 0, "cv_error": str(e)}
+            return {
+                "rf_cv_mean": 0,
+                "rf_cv_std": 0,
+                "gb_cv_mean": 0,
+                "gb_cv_std": 0,
+                "ensemble_estimate": 0,
+                "cv_error": str(e),
+            }
 
     def _feature_importance(self) -> list:
         """Get feature importance from both models."""
@@ -305,6 +353,6 @@ class MLEnsemble:
 
     def _feature_name(self, idx: int) -> str:
         from analyzers.ml_feature_engineer import FeatureEngineer
+
         names = FeatureEngineer.FEATURE_NAMES
         return names[idx] if idx < len(names) else f"feature_{idx}"
-
